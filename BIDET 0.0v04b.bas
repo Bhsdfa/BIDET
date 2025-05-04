@@ -7,7 +7,7 @@
 ' https://qb64phoenix.com/qb64wiki/index.php?title=_ACOS&action=edit
 
 DO
-   _LIMIT 5
+   _LIMIT 50
 LOOP UNTIL _SCREENEXISTS
 
 SCREEN _NEWIMAGE(1280, 680, 32)
