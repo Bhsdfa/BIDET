@@ -7,7 +7,7 @@
 ' https://qb64phoenix.com/qb64wiki/index.php?title=_ACOS&action=edit
 
 DO
-   _LIMIT 50
+   _LIMIT 15
 LOOP UNTIL _SCREENEXISTS
 
 SCREEN _NEWIMAGE(1280, 680, 32)
@@ -115,16 +115,21 @@ LoadHighlightColors
 FOR i = 1 TO MaxKeywords
    Keywords(i).word = "": Keywords(i).col = 0
 NEXT
-'Load keywords
-OPEN "BIDET/key.words" FOR INPUT AS #1
-i = 0
-DO
-   i = i + 1
-   LINE INPUT #1, Keywords(i).word
-   Keywords(i).col = 1
-LOOP UNTIL EOF(1)
-CLOSE #1
 
+'Load keywords
+IF _FILEEXISTS("BIDET/key.words") THEN
+   OPEN "BIDET/key.words" FOR INPUT AS #1
+   i = 0
+   DO
+      i = i + 1
+      LINE INPUT #1, Keywords(i).word
+      Keywords(i).col = 1
+   LOOP UNTIL EOF(1)
+   CLOSE #1
+ELSE
+   _MESSAGEBOX "Missing FIle.", ("File '" + "BIDET/key.words" + "' wasn't found!"), "error"
+   SYSTEM
+END IF
 
 
 DIM SHARED SubOutput1 AS DOUBLE
@@ -169,8 +174,6 @@ _DELAY 0.5
 
 DO
    CLS , _RGB(0, 10, 45): _LIMIT 5 + (_WINDOWHASFOCUS * -70): IF Delay > 0 THEN Delay = Delay - 1
-   'IF _KEYDOWN(117) THEN Cfg.CANIM_Erase = 1
-   'IF _KEYDOWN(105) THEN Cfg.CANIM_Erase = 2
    'Mouse related shenanigans.
    Mouse.scroll = 0
    DO WHILE _MOUSEINPUT
@@ -180,15 +183,13 @@ DO
    LOOP
    IF KeyP <> "" THEN _KEYCLEAR
    KeyP = INKEY$
-   GetCursorOnText
+   GetCursorOnText ' Responsable for text selection AND clicking.
    LinCamX2 = LinCamX2 + ((LinCamX + 0.01) - LinCamX2) / 30
    LinCamY2 = LinCamY2 + ((LinCamY + 0.01) - LinCamY2) / 30
 
-   IF _KEYDOWN(100306) AND _KEYDOWN(111) AND Delay = 0 THEN Delay = 20: LoadFromFile ' CTRL + O = Load from file.
-   IF _KEYDOWN(100306) AND _KEYDOWN(115) AND Delay = 0 THEN Delay = 20: SaveToFile ' CTRL + S = Save to file
    'Mouse scrolling
    IF Mouse.scroll <> 0 THEN HandleMouseScroll: AdjustEditLin
-
+   ShortCuts 'Things like 'CTRL + O' to open files.
 
 
    '  AnimationLogic
@@ -201,15 +202,14 @@ DO
    RenderLines
    _PUTIMAGE (0, 0), CodeLayer, 0
    ParticleSUB
-   ' PrintWithColor _WIDTH - _PRINTWIDTH("LinCamX: " + STR$(LinCamX)), 2 * FontSizeY, ("LinCamX: " + STR$(LinCamX)), 0
-   ' PrintWithColor _WIDTH - _PRINTWIDTH("LinCamY: " + STR$(LinCamY)), 3 * FontSizeY, ("LinCamY: " + STR$(LinCamY)), 0
-   ' a1$ = LEFT$(STR$(LinCamX2), LEN(STR$(INT(LinCamX2))) + 3)
-   ' a2$ = LEFT$(STR$(LinCamY2), LEN(STR$(INT(LinCamY2))) + 3)
-   ' PrintWithColor _WIDTH - _PRINTWIDTH("LinCamX2: " + a1$), 4 * FontSizeY, ("LinCamX2: " + a1$), 0
-   ' PrintWithColor _WIDTH - _PRINTWIDTH("LinCamY2: " + a2$), 5 * FontSizeY, ("LinCamY2: " + a2$), 0
-
    _DISPLAY
 LOOP
+
+SUB ShortCuts
+   IF _KEYDOWN(100306) AND _KEYHIT = 111 AND Delay = 0 THEN Delay = 20: INPUT "Filename: ", FilePath$: LoadFromFile FilePath$ ' CTRL + O = Load from file.
+   IF _KEYDOWN(100306) AND _KEYHIT = 115 AND Delay = 0 THEN Delay = 20: SaveToFile ' CTRL + S = Save to file
+
+END SUB
 
 '$INCLUDE:'externalfuncs/BIDET/alaska.bi'
 
@@ -641,22 +641,32 @@ SUB WriteToLin (id AS _UNSIGNED LONG, text AS STRING)
 
 END SUB
 
-SUB LoadFromFile
+SUB LoadFromFile (FilePath AS STRING)
    DIM Iterations AS _UNSIGNED LONG
    Iterations = 0
-   INPUT "FileName: ", FileName$
-   OPEN FileName$ FOR INPUT AS #1
-   DO WHILE NOT EOF(1)
-      LINE INPUT #1, Lin(Iterations).IText
-      Iterations = Iterations + 1
 
-      IF Iterations = LastLine THEN LastLine = LastLine + 1000: REDIM _PRESERVE Lin(LastLine) AS Lin
-   LOOP
-   LastLine = Iterations: REDIM _PRESERVE Lin(LastLine + 20) AS Lin
-   CLOSE #1
-   FOR o = 0 TO LastLine
-      GenerateVText Lin(o)
-   NEXT
+   IF _FILEEXISTS(FilePath) THEN
+
+      OPEN FilePath FOR INPUT AS #1
+      DO WHILE NOT EOF(1)
+         LINE INPUT #1, Lin(Iterations).IText
+         Iterations = Iterations + 1
+
+         IF Iterations = LastLine THEN LastLine = LastLine + 1000: REDIM _PRESERVE Lin(LastLine) AS Lin
+      LOOP
+      LastLine = Iterations: REDIM _PRESERVE Lin(LastLine + 20) AS Lin
+      CLOSE #1
+      FOR o = 0 TO LastLine
+         GenerateVText Lin(o)
+      NEXT
+
+   ELSE
+      PRINT ("File '" + FilePath + "' not found!!!")
+      _DISPLAY
+      BEEP
+      _DELAY 1
+   END IF
+
 END SUB
 
 SUB SaveToFile
@@ -667,8 +677,6 @@ SUB SaveToFile
    NEXT
    CLOSE #2
 END SUB
-
-
 
 
 
