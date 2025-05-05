@@ -21,7 +21,6 @@ DarkAlphaSprite = _NEWIMAGE(1, 1, 32): _DEST DarkAlphaSprite
 _CLEARCOLOR _RGB32(0, 0, 0), DarkAlphaSprite: LINE (0, 0)-(1, 1), _RGBA32(0, 0, 0, 45), BF
 _DEST 0
 delay = 2
-'OPTION _EXPLICIT
 '$DYNAMIC
 $COLOR:32
 TYPE Lin
@@ -135,7 +134,6 @@ END IF
 DIM SHARED SubOutput1 AS DOUBLE
 DIM SHARED LinCamX AS _UNSIGNED LONG, LinCamY AS _UNSIGNED LONG
 DIM SHARED LinCamX2 AS DOUBLE, LinCamY2 AS DOUBLE
-DIM SHARED CamXSmo AS DOUBLE, CamYSmo AS DOUBLE
 DIM SHARED LinEditX AS _UNSIGNED LONG, LinEditY AS _UNSIGNED LONG
 DIM SHARED LastLine AS _UNSIGNED LONG: LastLine = 1
 DIM SHARED LastGUI AS _UNSIGNED LONG: LastGUI = 8
@@ -144,7 +142,9 @@ DIM SHARED Lin(LastLine) AS Lin
 DIM SHARED FontSizeX
 DIM SHARED FontSizeY
 DIM SHARED KeyP AS STRING
-
+'Debug
+DIM SHARED IDE_DEBUG AS _BYTE
+DIM SHARED Deb_LiveParts AS _UNSIGNED INTEGER
 
 'Related to Dim
 DIM SHARED MaxParticles AS _UNSIGNED LONG: MaxParticles = 99999
@@ -159,7 +159,7 @@ Cfg.CANIM_Erase = 2
 ' Decorative.
 DIM SHARED Part(MaxParticles) AS Particles
 
-Font = _LOADFONT("BIDET/Fonts/KongText.ttf", 15, "monospace")
+Font = _LOADFONT("BIDET/Fonts/ComicMono-Bold.ttf", 19, "monospace")
 _FONT Font, 0
 _FONT Font, CodeLayer
 
@@ -202,14 +202,45 @@ DO
    RenderLines
    _PUTIMAGE (0, 0), CodeLayer, 0
    ParticleSUB
+   IDEDEBUG
    _DISPLAY
 LOOP
 
-SUB ShortCuts
-   IF _KEYDOWN(100306) AND _KEYHIT = 111 AND Delay = 0 THEN Delay = 20: INPUT "Filename: ", FilePath$: LoadFromFile FilePath$ ' CTRL + O = Load from file.
-   IF _KEYDOWN(100306) AND _KEYHIT = 115 AND Delay = 0 THEN Delay = 20: SaveToFile ' CTRL + S = Save to file
-
+SUB IDEDEBUG
+   IF IDE_DEBUG = 0 THEN EXIT SUB
+   LINE (0, _HEIGHT)-(_WIDTH, _HEIGHT - (4 * FontSizeY)), _RGB(0, 0, 0), BF
+   PrintWithColor 0, _HEIGHT - (4 * FontSizeY), ("§5LinCamX = §3" + STR$(LinCamX)), 0
+   PrintWithColor 0, _HEIGHT - (3 * FontSizeY), ("§5LinCamy = §3" + STR$(LinCamY)), 0
+   PrintWithColor 0, _HEIGHT - (2 * FontSizeY), ("§5LinCamX2 = §3" + Trunc(LinCamX2, 3)), 0
+   PrintWithColor 0, _HEIGHT - (1 * FontSizeY), ("§5LinCamy2 = §3" + Trunc(LinCamY2, 3)), 0
+   Size = SubOutput1 * FontSizeX
+   PrintWithColor Size, _HEIGHT - (4 * FontSizeY), ("§5LiveParts = §3" + STR$(Deb_LiveParts)), 0
+   PrintWithColor Size, _HEIGHT - (3 * FontSizeY), ("§5Lines = §3" + STR$(LastLine)), 0
+   PrintWithColor Size, _HEIGHT - (2 * FontSizeY), ("§5Lines = §3" + STR$(LastLine)), 0
 END SUB
+
+SUB ShortCuts
+   IF _KEYDOWN(100304) AND _KEYDOWN(15616) AND Delay = 0 THEN Delay = 15: IDE_DEBUG = IDE_DEBUG + 1: IF IDE_DEBUG = 2 THEN IDE_DEBUG = 0 ' SHIFT + F3 to activate IDE debug.
+   IF _KEYDOWN(100306) AND _KEYDOWN(111) AND Delay = 0 THEN Delay = 10: INPUT "Filename: ", FilePath$: LoadFromFile FilePath$ ' CTRL + O = Load from file.
+   IF _KEYDOWN(100306) AND _KEYDOWN(115) AND Delay = 0 THEN Delay = 10: SaveToFile ' CTRL + S = Save to file
+END SUB
+
+FUNCTION Trunc$ (Value AS DOUBLE, After AS _UNSIGNED INTEGER)
+   Trunc = LEFT$(STR$(Value), LEN(STR$(INT(Value))) + After)
+END FUNCTION
+
+SUB ShortKeys
+   'Scrolling text with PAGE UP/DOWN
+   IF _KEYDOWN(18688) THEN LinCamY = ChangeCam(LinCamY, -LinesOnScreenY) 'Page Up
+   IF _KEYDOWN(20736) THEN LinCamY = ChangeCam(LinCamY, LinesOnScreenY * 20) ' Page Down
+END SUB
+
+FUNCTION ChangeCam~& (Cam AS _UNSIGNED LONG, Value AS LONG)
+   DIM I64 AS _INTEGER64
+   I64 = Cam + Value
+   IF I64 <= 0 THEN ChangeCam~& = 0: Value = 0: PRINT "I64 = "; I64: _DISPLAY: _DELAY 2: EXIT FUNCTION
+   ChangeCam~& = Cam + Value
+END FUNCTION
 
 '$INCLUDE:'externalfuncs/BIDET/alaska.bi'
 
@@ -425,6 +456,7 @@ SUB SpawnParticle (AnimStyle AS _UNSIGNED _BYTE, AnimID AS _UNSIGNED _BYTE, X AS
          Part(i).AnimStyle = AnimStyle: Part(i).AnimID = AnimID
          Part(i).Size = size
          SubOutput1 = i
+         Deb_LiveParts = Deb_LiveParts + 1
          EXIT FOR
       END IF
    NEXT
@@ -467,6 +499,7 @@ SUB HandleMouseScroll
 END SUB
 
 SUB RenderLines
+   DIM i AS _UNSIGNED LONG
    LINE (ETSX(0), ETSY(LinEditY))-(_WIDTH, ETSY(LinEditY) + FontSizeY), _RGBA(0, 64, 128, 160), BF ' Change Color.
    FOR i = FIX(LinCamY2) TO INT(LinCamY2) + LinesOnScreenY + 1
 
@@ -539,13 +572,13 @@ SUB PrintWithColor (X AS LONG, Y AS _UNSIGNED LONG, Text AS STRING, Handle AS LO
          COLOR ColorFromSymbol(MID$(Text, First + 1, 1)), _RGBA32(0, 0, 0, 0)
          _PRINTSTRING (X + lens, Y), MID$(Text, First + 2, bytes - 2), Handle
          lens = lens + ((bytes - 2) * FontSizeX)
-         '    quit = quit + 1: IF quit > 2048 THEN EXIT DO 'prevent sub getting stuck somehow.
       LOOP WHILE Last < LEN(Text)
    ELSE
       COLOR _RGB32(255, 255, 255), _RGB32(0, 0, 0)
       _PRINTSTRING (X, Y), Text
    END IF
    _DEST OldHandle
+   SubOutput1 = LEN(Text)
 END SUB
 
 
@@ -561,7 +594,7 @@ SUB ExtraKeys
       IF KeyD$ = "G" THEN LinEditX = 0: MovedCursor = 1 ' Home
       IF KeyD$ = "O" THEN LinEditX = LEN(Lin(LinEditY).IText): MovedCursor = 1 ' End
    END IF
-
+   ShortKeys
    IF MovedCursor = 1 THEN AdjustCamLin
 
 

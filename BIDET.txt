@@ -1,0 +1,24 @@
+' This is my IDE, called §4BIDET.
+' It's main goal is to be §4FAST§5, §4MODERN§5 and compatible with both §4LINUX§5 and §4WINDOWS.
+' As of now its on version 0.0v04b, a pre-release.
+'
+'§6 At the moment it has features such as:
+'
+'§2    - Text highlighting.
+'          §2You §1can §3use §4your §5own §2colors. §¹:D §5(Keywords will be automatically highlighted.)
+'
+'§2    - Deleting animations
+'         §3These are aimed to keep the experience fresh and modern.
+' 
+'§2    - Smooth scrolling
+'§3         Not only smoother to code, but customizable too!
+'    
+'§2    - Loading and saving files
+'
+
+
+
+
+
+
+

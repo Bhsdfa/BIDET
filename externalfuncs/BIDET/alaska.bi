@@ -28,6 +28,7 @@ FUNCTION ATan2 (y AS SINGLE, x AS SINGLE)
 END FUNCTION
 
 SUB KillParticle (Part AS Particles)
+   Deb_LiveParts = Deb_LiveParts - 1
    Part.X = 0: Part.Y = 0: Part.Xm = 0: Part.Ym = 0: Part.Rot = 0
    Part.Exists = 0: Part.RotM = 0
    IF Part.Image <> 0 THEN _FREEIMAGE Part.Image
