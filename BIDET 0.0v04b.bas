@@ -62,7 +62,24 @@ TYPE GUI
    Clicked AS _BYTE
    Hover AS _BYTE
    IMGHANDLE AS _UNSIGNED LONG
+   openwindow AS STRING
 END TYPE
+TYPE Windows
+   x1 AS DOUBLE
+   x2 AS DOUBLE
+   y1 AS DOUBLE
+   y2 AS DOUBLE
+   x1b AS DOUBLE
+   x2b AS DOUBLE
+   y1b AS DOUBLE
+   y2b AS DOUBLE
+
+   title AS STRING
+   hovered AS _UNSIGNED _BYTE
+   IMGHANDLE AS _UNSIGNED LONG
+
+END TYPE
+
 TYPE Particles
    X AS DOUBLE
    Y AS DOUBLE
@@ -101,14 +118,14 @@ MaxKeywords = 1024
 
 ' Dimmers
 DIM SHARED Language AS STRING
-DIM SHARED LanguageIDs(64) AS _UNSIGNED LONG
+DIM SHARED LanguageIDs(128) AS _UNSIGNED LONG
 DIM SHARED Sel AS Selection
 DIM SHARED Selies(64) AS Selection
 DIM SHARED Mouse AS Mouse
 DIM SHARED Keywords(MaxKeywords) AS Keywords
-DIM SHARED GUI(16) AS GUI
 DIM SHARED Cfg AS Config
 DIM SHARED HColors(16) AS LONG
+
 LoadHighlightColors
 
 FOR i = 1 TO MaxKeywords
@@ -130,13 +147,16 @@ ELSE
    SYSTEM
 END IF
 
+'Required
+DIM SHARED LangTXT(1) AS STRING
+DIM SHARED DefaultFont
 
 DIM SHARED SubOutput1 AS DOUBLE
 DIM SHARED LinCamX AS _UNSIGNED LONG, LinCamY AS _UNSIGNED LONG
 DIM SHARED LinCamX2 AS DOUBLE, LinCamY2 AS DOUBLE
 DIM SHARED LinEditX AS _UNSIGNED LONG, LinEditY AS _UNSIGNED LONG
-DIM SHARED LastLine AS _UNSIGNED LONG: LastLine = 1
-DIM SHARED LastGUI AS _UNSIGNED LONG: LastGUI = 8
+DIM SHARED LastLine AS _UNSIGNED LONG: LastLine = 5
+
 DIM SHARED LinesOnScreenY AS _UNSIGNED INTEGER, LinesOnScreenX AS _UNSIGNED INTEGER
 DIM SHARED Lin(LastLine) AS Lin
 DIM SHARED FontSizeX
@@ -148,6 +168,14 @@ DIM SHARED Deb_LiveParts AS _UNSIGNED INTEGER
 
 'Related to Dim
 DIM SHARED MaxParticles AS _UNSIGNED LONG: MaxParticles = 99999
+DIM SHARED LastGUI AS _UNSIGNED LONG: LastGUI = 0
+DIM SHARED MaxGUI AS _UNSIGNED LONG: MaxGUI = 16
+DIM SHARED MaxWindows AS _UNSIGNED LONG: MaxWindows = 16
+
+DIM SHARED GUI(MaxGUI) AS GUI
+DIM SHARED Windows(MaxWindows) AS Windows
+
+
 
 'MISC stuff:
 Cfg.Gravity = 3.5
@@ -159,19 +187,27 @@ Cfg.CANIM_Erase = 2
 ' Decorative.
 DIM SHARED Part(MaxParticles) AS Particles
 
-Font = _LOADFONT("BIDET/Fonts/ComicMono-Bold.ttf", 19, "monospace")
-_FONT Font, 0
-_FONT Font, CodeLayer
+DefaultFont = _LOADFONT("BIDET/Fonts/ComicMono-Bold.ttf", 19, "MONOSPACE,UNICODE")
+_FONT DefaultFont, 0
+_FONT DefaultFont, CodeLayer
 
 
 FontSizeX = _PRINTWIDTH("ABC") / 3
-FontSizeY = _FONTHEIGHT(Font)
+FontSizeY = _FONTHEIGHT(DefaultFont)
 DIM SHARED Delay AS _UNSIGNED LONG
 LinesOnScreenY = FIX(_HEIGHT / FontSizeY) - 1
 LinesOnScreenX = FIX(_WIDTH / FontSizeX) - 1
 CONST CSC = "§"
 _DELAY 0.5
-
+LoadLanguage "Portuguese"
+CreateNewGUIObj 0, 0, (Wrd(4, 2)), -1, -1, "file" 'file
+CreateNewGUIObj SubOutput1 + (FontSizeX * 2), 0, (Wrd(5, 2)), -1, -1, "edit"
+CreateNewGUIObj SubOutput1 + (FontSizeX * 2), 0, (Wrd(6, 2)), -1, -1, "view"
+CreateNewGUIObj SubOutput1 + (FontSizeX * 2), 0, (Wrd(7, 2)), -1, -1, "search"
+CreateNewGUIObj SubOutput1 + (FontSizeX * 2), 0, (Wrd(8, 2)), -1, -1, "run"
+CreateNewGUIObj SubOutput1 + (FontSizeX * 2), 0, (Wrd(9, 2)), -1, -1, "debug"
+CreateNewGUIObj SubOutput1 + (FontSizeX * 2), 0, (Wrd(10, 2)), -1, -1, "options"
+CreateNewGUIObj SubOutput1 + (FontSizeX * 2), 0, (Wrd(10, 2)), -1, -1, "tools"
 DO
    CLS , _RGB(0, 10, 45): _LIMIT 5 + (_WINDOWHASFOCUS * -70): IF Delay > 0 THEN Delay = Delay - 1
    'Mouse related shenanigans.
@@ -184,24 +220,23 @@ DO
    IF KeyP <> "" THEN _KEYCLEAR
    KeyP = INKEY$
    GetCursorOnText ' Responsable for text selection AND clicking.
-   LinCamX2 = LinCamX2 + ((LinCamX + 0.01) - LinCamX2) / 30
-   LinCamY2 = LinCamY2 + ((LinCamY + 0.01) - LinCamY2) / 30
+   LinCamX2 = LinCamX2 + ((LinCamX + 0.01) - LinCamX2) / 10
+   LinCamY2 = LinCamY2 + ((LinCamY + 0.01) - LinCamY2) / 10
 
    'Mouse scrolling
    IF Mouse.scroll <> 0 THEN HandleMouseScroll: AdjustEditLin
    ShortCuts 'Things like 'CTRL + O' to open files.
 
-
    '  AnimationLogic
    IF KeyP <> "" THEN ExtraKeys: GenerateVText Lin(LinEditY)
    IF KeyP <> "" THEN WriteToLin LinEditY, KeyP: GenerateVText Lin(LinEditY)
-
 
    ' Render on screen.
    CLS , , CodeLayer
    RenderLines
    _PUTIMAGE (0, 0), CodeLayer, 0
    ParticleSUB
+   RenderGUI
    IDEDEBUG
    _DISPLAY
 LOOP
@@ -251,16 +286,11 @@ SUB GetCursorOnText
       IF Mouse.hassel = -1 THEN
          IF LinEditX <> Mouse.LinX OR LinEditY <> Mouse.LinY THEN
             Sel.Exists = -1
-
-
             Sel.LinX1 = Mouse.LinX: Sel.LinY1 = Mouse.LinY
             Sel.LinX2 = LinEditX: Sel.LinY2 = LinEditY
             IF Sel.LinY1 > Sel.LinY2 THEN SWAP Sel.LinX1, Sel.LinX2
             IF Sel.LinY2 < Sel.LinY1 THEN SWAP Sel.LinY1, Sel.LinY2
-
-
             IF Sel.LinX2 < Sel.LinX1 THEN IF Sel.LinY1 = Sel.LinY2 THEN SWAP Sel.LinX1, Sel.LinX2
-
          END IF
       ELSE
          Mouse.LinX = LinEditX: Mouse.LinY = LinEditY: Mouse.hassel = -1
@@ -269,7 +299,6 @@ SUB GetCursorOnText
    ELSE
       Mouse.LinX = 0: Mouse.LinY = 0: Mouse.hassel = 0:
    END IF
-
    IF Sel.LinY2 > LastLine THEN Sel.LinY2 = LastLine
    RenderSelected
 END SUB
@@ -302,7 +331,6 @@ SUB DeleteSelection
       IF Y > LastLine THEN EXIT FOR
       GenerateVText Lin(Y)
    NEXT
-
    Sel.Exists = 0
    Sel.LinY1 = 0
    Sel.LinY2 = 0
@@ -387,11 +415,16 @@ SUB ParticleSUB
 END SUB
 
 SUB PartLetterFromScreen (Part AS Particles, X AS _UNSIGNED LONG, Y AS _UNSIGNED LONG, SizeX AS _UNSIGNED INTEGER, SizeY AS _UNSIGNED INTEGER, Handle AS LONG)
+   DIM temp AS _UNSIGNED LONG
    IF Part.Image <> 0 THEN _FREEIMAGE Part.Image
    Part.Image = _NEWIMAGE(SizeX, SizeY, 32)
    _PUTIMAGE (0, 0), Handle, Part.Image, (X, Y)-(X + SizeX, Y + SizeY)
    _PUTIMAGE (0, 0)-(SizeX, SizeY), DarkAlphaSprite, Part.Image
    _CLEARCOLOR _RGB32(0, 0, 0), Part.Image
+
+   temp = _COPYIMAGE(Part.Image, 33)
+   _FREEIMAGE Part.Image
+   Part.Image = temp
 END SUB
 
 SUB ParticlePhys (Part AS Particles)
@@ -400,19 +433,13 @@ SUB ParticlePhys (Part AS Particles)
    IF Part.Y < -100 THEN KillParticle Part
    IF Part.X < -100 THEN KillParticle Part
    SELECT CASE Part.AnimStyle
-
       CASE 1
          SELECT CASE Part.AnimID
             CASE 1: ParticlePhysFall Part
             CASE 2: ParticlePhysMouse Part
          END SELECT
-
-
       CASE 2
-
    END SELECT
-
-
 END SUB
 
 SUB ParticlePhysMouse (Part AS Particles)
@@ -422,27 +449,17 @@ SUB ParticlePhysMouse (Part AS Particles)
    Part.Rot = ATan2(dy, dx) ' Angle in radians
    Part.Rot = (Part.Rot * 180 / PI) + 90 + (INT(RND * 10) - 5)
    IF Part.Rot > 180 THEN Part.Rot = Part.Rot - 179.9
-
    dist = Distance(Part.X, Part.Y, Mouse.x, Mouse.y) / 20: IF dist > 50 THEN dist = 50
    IF dist < 6 THEN Part.Xm = Part.Xm / 1.002: Part.Ym = Part.Ym / 1.002
    IF dist < 5 THEN Part.Xm = Part.Xm / 1.009: Part.Ym = Part.Ym / 1.009
    IF dist < 4 THEN Part.Xm = Part.Xm / 1.01: Part.Ym = Part.Ym / 1.01
    Part.Size = dist * 1.3: IF Part.Size > 1.5 THEN Part.Size = 1.5
    IF Part.Size < 0.5 THEN KillParticle Part: EXIT SUB
-
    IF dist < 25 THEN
       Part.Xm = (Part.Xm / 1.001) + SIN(Part.Rot * PIDIV180) * (15 / dist): Part.Ym = (Part.Ym / 1.001) + -COS(Part.Rot * PIDIV180) * (15 / dist)
    END IF
 END SUB
 
-
-
-SUB GeneratePartLetter (Part AS Particles, Text AS STRING, ColorNum AS STRING)
-   IF Part.Image <> 0 THEN _FREEIMAGE Part.Image
-   Part.Image = _NEWIMAGE(FontSizeX, FontSizeY, 32)
-   _PRINTSTRING (0, 0), Text, Part.Image
-   _CLEARCOLOR _RGB32(0, 0, 0), Part.Image
-END SUB
 
 SUB SpawnParticle (AnimStyle AS _UNSIGNED _BYTE, AnimID AS _UNSIGNED _BYTE, X AS DOUBLE, Y AS DOUBLE, size AS DOUBLE, XM AS DOUBLE, YM AS DOUBLE, Rot AS DOUBLE, RotM AS DOUBLE, Image AS LONG)
    IF X > _WIDTH THEN EXIT SUB
@@ -466,12 +483,69 @@ END SUB
 SUB RenderGUI
    DIM i AS _UNSIGNED LONG
    FOR i = 0 TO 10
+      LINE (GUI(i).x1, GUI(i).y1)-(GUI(i).x2, GUI(i).y2), _RGB32(0, 0, 0), BF
+      _PUTIMAGE (GUI(i).x1, GUI(i).y1)-(GUI(i).x2, GUI(i).y2), GUI(i).IMGHANDLE
    NEXT
 END SUB
 
-SUB CreateNewGUIObj (x AS _UNSIGNED LONG, y AS _UNSIGNED LONG, TextID AS _UNSIGNED LONG, Size AS LONG)
-   ' if Size = -1 then Size = _Printwidth
+SUB CreateNewGUIObj (x AS _UNSIGNED LONG, y AS _UNSIGNED LONG, Text AS STRING, SizeX AS LONG, SizeY AS LONG, WName AS STRING)
+   DIM Temp AS _UNSIGNED LONG
+   IF LastGUI < MaxGUI THEN
+
+      GUI(LastGUI).openwindow = WName
+      GUI(LastGUI).x1 = x
+      GUI(LastGUI).y1 = y
+      IF SizeX = -1 THEN SizeX = (LEN(Text)) * _FONTWIDTH(DefaultFont)
+      IF SizeY = -1 THEN SizeY = _FONTHEIGHT(DefaultFont)
+      GUI(LastGUI).IMGHANDLE = _NEWIMAGE(SizeX, SizeY, 32)
+      _FONT DefaultFont, GUI(LastGUI).IMGHANDLE
+      GUI(LastGUI).x2 = GUI(LastGUI).x1 + SizeX
+      GUI(LastGUI).y2 = GUI(LastGUI).y1 + SizeY
+      PrintWithColor 0, 0, Text, GUI(LastGUI).IMGHANDLE
+
+
+
+      Temp = _COPYIMAGE(GUI(LastGUI).IMGHANDLE, 33)
+      _FREEIMAGE GUI(LastGUI).IMGHANDLE
+      GUI(LastGUI).IMGHANDLE = Temp
+
+
+      LastGUI = LastGUI + 1
+   END IF
+
+   SubOutput1 = GUI(LastGUI - 1).x2
+
 END SUB
+
+SUB LoadLanguage (Lang AS STRING)
+   OPEN ("BIDET/Languages/" + Lang + ".lang") FOR INPUT AS #9
+   DIM i AS _UNSIGNED LONG
+   DO
+      REDIM _PRESERVE LangTXT(i) AS STRING
+      LINE INPUT #9, LangTXT(i)
+      i = i + 1
+   LOOP WHILE NOT EOF(9)
+   CLOSE #9
+END SUB
+
+FUNCTION Wrd$ (ID AS _UNSIGNED LONG, stat AS _UNSIGNED _BYTE)
+   ID = ID - 1
+   DIM Res AS STRING
+   IF ID < UBOUND(LangTXT) THEN
+      Res = LangTXT(ID)
+   ELSE
+      Res = "§6#NOTXT#"
+   END IF
+   SELECT CASE stat
+      CASE 0
+         Wrd$ = LCASE$(Res)
+      CASE 1
+         Wrd$ = UCASE$(Res)
+      CASE 2
+         Wrd$ = (UCASE$(LEFT$(Res, 1)) + LCASE$(RIGHT$(Res, LEN(Res) - 1)))
+   END SELECT
+END FUNCTION
+
 
 SUB DeleteGUIObj
 
@@ -587,7 +661,7 @@ SUB ExtraKeys
    'Move TCursor
    MovedCursor = 0
    IF NOT _KEYDOWN(100306) THEN
-      IF KeyD$ = "H" AND LinEditY > 0 THEN GoToLine LinEditY - 1: MovedCursor = 1 ' Up Arrow
+      IF KeyD$ = "H" AND LinEditY > 1 THEN GoToLine LinEditY - 1: MovedCursor = 1 ' Up Arrow
       IF KeyD$ = "P" AND LinEditY < LastLine THEN GoToLine LinEditY + 1: MovedCursor = 1 ' Down Arrow
       IF KeyD$ = "K" AND LinEditX > 0 THEN LinEditX = LinEditX - 1: MovedCursor = 1 ' Left Arrow
       IF KeyD$ = "M" THEN LinEditX = LinEditX + 1: MovedCursor = 1 ' Right Arrow
@@ -676,7 +750,7 @@ END SUB
 
 SUB LoadFromFile (FilePath AS STRING)
    DIM Iterations AS _UNSIGNED LONG
-   Iterations = 0
+   Iterations = 1
 
    IF _FILEEXISTS(FilePath) THEN
 
@@ -685,7 +759,7 @@ SUB LoadFromFile (FilePath AS STRING)
          LINE INPUT #1, Lin(Iterations).IText
          Iterations = Iterations + 1
 
-         IF Iterations = LastLine THEN LastLine = LastLine + 1000: REDIM _PRESERVE Lin(LastLine) AS Lin
+         IF Iterations = LastLine THEN LastLine = LastLine + 2: REDIM _PRESERVE Lin(LastLine) AS Lin
       LOOP
       LastLine = Iterations: REDIM _PRESERVE Lin(LastLine + 20) AS Lin
       CLOSE #1
