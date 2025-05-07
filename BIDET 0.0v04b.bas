@@ -186,7 +186,7 @@ DIM SHARED Deb_LiveWindows AS _UNSIGNED INTEGER
 DIM SHARED MaxParticles AS _UNSIGNED LONG: MaxParticles = 99999
 DIM SHARED LastGUI AS _UNSIGNED LONG: LastGUI = 0
 DIM SHARED MaxGUI AS _UNSIGNED LONG: MaxGUI = 16
-DIM SHARED LastWindows AS _UNSIGNED LONG: LastWindows = 0
+DIM SHARED LastWindows AS _UNSIGNED LONG: LastWindows = 1
 DIM SHARED MaxWindows AS _UNSIGNED LONG: MaxWindows = 16
 
 DIM SHARED GUI(MaxGUI) AS GUI
@@ -282,7 +282,7 @@ SUB GUIClicked (GUI AS GUI)
    Mouse.click1 = 0
 END SUB
 
-FUNCTION CheckIfBounds (x1 AS _UNSIGNED LONG, y1 AS _UNSIGNED LONG, x2 AS _UNSIGNED LONG, y2 AS _UNSIGNED LONG, x3 AS _UNSIGNED LONG, y3 AS _UNSIGNED LONG)
+FUNCTION CheckIfBounds (x1 AS LONG, y1 AS LONG, x2 AS LONG, y2 AS LONG, x3 AS LONG, y3 AS LONG)
    CheckIfBounds = 0
    IF x3 > x1 THEN: IF x3 < x2 THEN: IF y3 > y1 THEN: IF y3 < y2 THEN
                CheckIfBounds = -1
@@ -310,42 +310,67 @@ SUB NewWindow (x1 AS DOUBLE, y1 AS DOUBLE, x2 AS DOUBLE, y2 AS DOUBLE, x1b AS DO
    END IF
 END SUB
 
+SUB KillWIndow (win AS Windows)
+   Deb_LiveWindows = Deb_LiveWindows - 1
+   SWAP win.x1b, win.x1o
+   SWAP win.x2b, win.x2o
+   SWAP win.y1b, win.y1o
+   SWAP win.y2b, win.y2o
+   win.ititle = ""
+   win.State = -1
+   win.vtitle = ""
+END SUB
+
+
 SUB WindowLogic
-   FOR o = LastWindow TO 0 STEP -1
+
+   FOR i = 1 TO MaxWindows
+      IF Windows(i).State <> 0 THEN
+         RenderWindowsOutside Windows(i)
+         IF Windows(i).State = 1 OR Windows(i).State = -1 THEN WindowsAnim Windows(i)
+
+
+      END IF
+   NEXT
+   IF Windows(WindowFocused).State = 2 THEN WindowLiveLogic Windows(WindowFocused)
+   WindowFocused = 0
+   FOR o = MaxWindows TO 1 STEP -1
       IF Windows(o).State = 2 AND CheckIfBounds(Windows(o).x1, Windows(o).y1, Windows(o).x2, Windows(o).y2, Mouse.x, Mouse.y) THEN WindowFocused = o: EXIT FOR
    NEXT
 
-   FOR i = 0 TO LastWindow
-      IF Windows(i).State <> 0 THEN
-         IF Windows(i).State = 1 THEN WindowsAnim Windows(i)
-         IF Windows(WindowFocused).State = 2 THEN WindowLiveLogic Windows(WindowFocused)
-         RenderWindowsOutside Windows(i)
-      END IF
-   NEXT
 END SUB
 
 SUB WindowLiveLogic (Win AS Windows)
    LINE (Win.x1, Win.y1)-(Win.x2, Win.y2), _RGBA(255, 0, 0, 128), BF
    DIM Lmx AS LONG: DIM Lmy AS LONG
-   Lmx = Win.x1 - Mouse.x
-   Lmy = Win.y1 - Mouse.y
-   IF Lmx < 0 THEN Lmx = 0
-   IF Lmy < 0 THEN Lmy = 0
-   IF Lmy < FontSizeY AND Mouse.click1 THEN
+   SizeX = Win.x2 - Win.x1
+   SizeY = Win.y2 - Win.y2
+   Lmx = Mouse.x - Win.x1
+   Lmy = Mouse.y - Win.y1
+   IF Mouse.click3 THEN
+      Mouse.click1 = 0
+      Mouse.click2 = 0
+      Mouse.click3 = 0
       Win.x1 = Win.x1 - Mouse.xm
       Win.x2 = Win.x2 - Mouse.xm
       Win.y1 = Win.y1 - Mouse.ym
       Win.y2 = Win.y2 - Mouse.ym
    END IF
 
-
+   IF Lmx > SizeX - FontSizeY AND Lmy < FontSizeY AND Mouse.click1 THEN KillWIndow Win
 
 
    'Rendering
    _DEST Win.IMGHANDLE
    CLS
    LINE (0, 0)-(_WIDTH, FontSizeY), _RGB32(255, 255, 0), BF
-
+   LINE (SizeX - FontSizeY, 0)-(SizeX, FontSizeY), _RGB32(255, 0, 0), BF
+   PRINT "x1: "; Win.x1
+   PRINT "y1: "; Win.y1
+   PRINT "x2: "; Win.x2
+   PRINT "y2: "; Win.y2
+   PRINT "Lmx: "; Lmx
+   PRINT "Lmy: "; Lmy
    _DEST 0
    Mouse.click1 = 0
    Mouse.click2 = 0
@@ -363,11 +388,12 @@ SUB WindowsAnim (Win AS Windows)
    disty1 = ABS(Win.y1 - Win.y1b): disty2 = ABS(Win.y2 - Win.y2b)
    dist = distx1 + distx2 + disty1 + disty2
 
-   IF dist < 2 THEN
+   IF dist < 6 THEN
       Win.x1 = Win.x1b: Win.x2 = Win.x2b
       Win.y1 = Win.y1b: Win.y2 = Win.y2b
-      Win.State = 2: Win.AnimTime = 0
+      Win.State = Win.State + 1: Win.AnimTime = 0
    END IF
+   IF Win.State = 0 THEN _FREEIMAGE Win.IMGHANDLE: LastWindows = LastWindows - 1
 END SUB
 
 SUB RenderWindowsOutside (Win AS Windows)
