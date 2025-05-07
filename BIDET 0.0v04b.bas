@@ -33,6 +33,9 @@ END TYPE
 TYPE Mouse
    x AS _UNSIGNED LONG
    y AS _UNSIGNED LONG
+   xm AS LONG
+   ym AS LONG
+
    click1 AS _BYTE
    click2 AS _BYTE
    click3 AS _BYTE
@@ -61,6 +64,8 @@ TYPE GUI
    Selected AS _BYTE
    Clicked AS _BYTE
    Hover AS _BYTE
+   exists AS _BYTE
+   clickable AS _BYTE
    IMGHANDLE AS _UNSIGNED LONG
    openwindow AS STRING
 END TYPE
@@ -69,13 +74,23 @@ TYPE Windows
    x2 AS DOUBLE
    y1 AS DOUBLE
    y2 AS DOUBLE
+
+   x1o AS DOUBLE
+   x2o AS DOUBLE
+   y1o AS DOUBLE
+   y2o AS DOUBLE
+
    x1b AS DOUBLE
    x2b AS DOUBLE
    y1b AS DOUBLE
    y2b AS DOUBLE
 
-   title AS STRING
+   vtitle AS STRING
+   ititle AS STRING
+   TitID AS _UNSIGNED LONG
    hovered AS _UNSIGNED _BYTE
+   State AS _BYTE
+   AnimTime AS _UNSIGNED INTEGER
    IMGHANDLE AS _UNSIGNED LONG
 
 END TYPE
@@ -150,6 +165,7 @@ END IF
 'Required
 DIM SHARED LangTXT(1) AS STRING
 DIM SHARED DefaultFont
+DIM SHARED WindowFocused AS _UNSIGNED LONG
 
 DIM SHARED SubOutput1 AS DOUBLE
 DIM SHARED LinCamX AS _UNSIGNED LONG, LinCamY AS _UNSIGNED LONG
@@ -165,11 +181,12 @@ DIM SHARED KeyP AS STRING
 'Debug
 DIM SHARED IDE_DEBUG AS _BYTE
 DIM SHARED Deb_LiveParts AS _UNSIGNED INTEGER
-
+DIM SHARED Deb_LiveWindows AS _UNSIGNED INTEGER
 'Related to Dim
 DIM SHARED MaxParticles AS _UNSIGNED LONG: MaxParticles = 99999
 DIM SHARED LastGUI AS _UNSIGNED LONG: LastGUI = 0
 DIM SHARED MaxGUI AS _UNSIGNED LONG: MaxGUI = 16
+DIM SHARED LastWindows AS _UNSIGNED LONG: LastWindows = 0
 DIM SHARED MaxWindows AS _UNSIGNED LONG: MaxWindows = 16
 
 DIM SHARED GUI(MaxGUI) AS GUI
@@ -199,7 +216,7 @@ LinesOnScreenY = FIX(_HEIGHT / FontSizeY) - 1
 LinesOnScreenX = FIX(_WIDTH / FontSizeX) - 1
 CONST CSC = "§"
 _DELAY 0.5
-LoadLanguage "Portuguese"
+LoadLanguage "English"
 CreateNewGUIObj 0, 0, (Wrd(4, 2)), -1, -1, "file" 'file
 CreateNewGUIObj SubOutput1 + (FontSizeX * 2), 0, (Wrd(5, 2)), -1, -1, "edit"
 CreateNewGUIObj SubOutput1 + (FontSizeX * 2), 0, (Wrd(6, 2)), -1, -1, "view"
@@ -212,13 +229,18 @@ DO
    CLS , _RGB(0, 10, 45): _LIMIT 5 + (_WINDOWHASFOCUS * -70): IF Delay > 0 THEN Delay = Delay - 1
    'Mouse related shenanigans.
    Mouse.scroll = 0
+   Mouse.xm = Mouse.x: Mouse.ym = Mouse.y
    DO WHILE _MOUSEINPUT
       Mouse.x = _MOUSEX: Mouse.y = _MOUSEY
       Mouse.click1 = _MOUSEBUTTON(1): Mouse.click2 = _MOUSEBUTTON(2): Mouse.click3 = _MOUSEBUTTON(3)
       IF _MOUSEWHEEL <> 0 THEN Mouse.scroll = _MOUSEWHEEL
    LOOP
+   Mouse.xm = Mouse.xm - Mouse.x: Mouse.ym = Mouse.ym - Mouse.y
    IF KeyP <> "" THEN _KEYCLEAR
    KeyP = INKEY$
+   GUILogic
+   WindowLogic
+
    GetCursorOnText ' Responsable for text selection AND clicking.
    LinCamX2 = LinCamX2 + ((LinCamX + 0.01) - LinCamX2) / 10
    LinCamY2 = LinCamY2 + ((LinCamY + 0.01) - LinCamY2) / 10
@@ -235,11 +257,124 @@ DO
    CLS , , CodeLayer
    RenderLines
    _PUTIMAGE (0, 0), CodeLayer, 0
+
    ParticleSUB
    RenderGUI
    IDEDEBUG
    _DISPLAY
 LOOP
+
+SUB GUILogic
+   FOR i = 0 TO MaxGUI
+      IF GUI(i).exists THEN
+
+         IF Mouse.click1 AND Delay = 0 AND CheckIfBounds(GUI(i).x1, GUI(i).y1, GUI(i).x2, GUI(i).y2, Mouse.x, Mouse.y) THEN GUIClicked GUI(i): Delay = 10
+      END IF
+
+
+   NEXT
+END SUB
+
+SUB GUIClicked (GUI AS GUI)
+   IF GUI.openwindow <> "" THEN
+      NewWindow GUI.x1, GUI.y1, GUI.x2, GUI.y2, (_WIDTH / 2) - 200, (_HEIGHT / 2) - 150, (_WIDTH / 2) + 200, (_HEIGHT / 2) + 150, GUI.openwindow
+   END IF
+   Mouse.click1 = 0
+END SUB
+
+FUNCTION CheckIfBounds (x1 AS _UNSIGNED LONG, y1 AS _UNSIGNED LONG, x2 AS _UNSIGNED LONG, y2 AS _UNSIGNED LONG, x3 AS _UNSIGNED LONG, y3 AS _UNSIGNED LONG)
+   CheckIfBounds = 0
+   IF x3 > x1 THEN: IF x3 < x2 THEN: IF y3 > y1 THEN: IF y3 < y2 THEN
+               CheckIfBounds = -1
+   END IF: END IF: END IF: END IF
+END FUNCTION
+
+SUB NewWindow (x1 AS DOUBLE, y1 AS DOUBLE, x2 AS DOUBLE, y2 AS DOUBLE, x1b AS DOUBLE, y1b AS DOUBLE, x2b AS DOUBLE, y2b AS DOUBLE, ititle AS STRING)
+   DIM i AS _UNSIGNED LONG
+   i = LastWindows
+   Deb_LiveWindows = Deb_LiveWindows + 1
+   IF LastWindows < MaxWindows THEN
+      Windows(i).x1 = x1: Windows(i).x1o = x1
+      Windows(i).x2 = x2: Windows(i).x2o = x2
+      Windows(i).y1 = y1: Windows(i).y1o = y1
+      Windows(i).y2 = y2: Windows(i).y2o = y2:
+      Windows(i).x1b = x1b: Windows(i).x2b = x2b
+      Windows(i).y1b = y1b: Windows(i).y2b = y2b
+      Windows(i).ititle = ititle: Windows(i).State = 1
+      Windows(i).IMGHANDLE = _NEWIMAGE(x2b - x1b, y2b - y1b, 32)
+      SELECT CASE LCASE$(ititle)
+         CASE "options": Windows(i).vtitle = Wrd$(10, 2)
+      END SELECT
+
+      LastWindows = LastWindows + 1
+   END IF
+END SUB
+
+SUB WindowLogic
+   FOR o = LastWindow TO 0 STEP -1
+      IF Windows(o).State = 2 AND CheckIfBounds(Windows(o).x1, Windows(o).y1, Windows(o).x2, Windows(o).y2, Mouse.x, Mouse.y) THEN WindowFocused = o: EXIT FOR
+   NEXT
+
+   FOR i = 0 TO LastWindow
+      IF Windows(i).State <> 0 THEN
+         IF Windows(i).State = 1 THEN WindowsAnim Windows(i)
+         IF Windows(WindowFocused).State = 2 THEN WindowLiveLogic Windows(WindowFocused)
+         RenderWindowsOutside Windows(i)
+      END IF
+   NEXT
+END SUB
+
+SUB WindowLiveLogic (Win AS Windows)
+   LINE (Win.x1, Win.y1)-(Win.x2, Win.y2), _RGBA(255, 0, 0, 128), BF
+   DIM Lmx AS LONG: DIM Lmy AS LONG
+   Lmx = Win.x1 - Mouse.x
+   Lmy = Win.y1 - Mouse.y
+   IF Lmx < 0 THEN Lmx = 0
+   IF Lmy < 0 THEN Lmy = 0
+   IF Lmy < FontSizeY AND Mouse.click1 THEN
+      Win.x1 = Win.x1 - Mouse.xm
+      Win.x2 = Win.x2 - Mouse.xm
+      Win.y1 = Win.y1 - Mouse.ym
+      Win.y2 = Win.y2 - Mouse.ym
+   END IF
+
+
+
+
+   'Rendering
+   _DEST Win.IMGHANDLE
+   CLS
+   LINE (0, 0)-(_WIDTH, FontSizeY), _RGB32(255, 255, 0), BF
+
+   _DEST 0
+   Mouse.click1 = 0
+   Mouse.click2 = 0
+   Mouse.click3 = 0
+END SUB
+
+SUB WindowsAnim (Win AS Windows)
+   Win.AnimTime = Win.AnimTime + 2
+   IF Win.AnimTime > 60 THEN Win.AnimTime = 60
+   Win.x1 = Win.x1 + (Win.x1b - Win.x1) / (10 / (Win.AnimTime / 40))
+   Win.x2 = Win.x2 + (Win.x2b - Win.x2) / (10 / (Win.AnimTime / 40))
+   Win.y1 = Win.y1 + (Win.y1b - Win.y1) / (10 / (Win.AnimTime / 40))
+   Win.y2 = Win.y2 + (Win.y2b - Win.y2) / (10 / (Win.AnimTime / 40))
+   distx1 = ABS(Win.x1 - Win.x1b): distx2 = ABS(Win.x2 - Win.x2b)
+   disty1 = ABS(Win.y1 - Win.y1b): disty2 = ABS(Win.y2 - Win.y2b)
+   dist = distx1 + distx2 + disty1 + disty2
+
+   IF dist < 2 THEN
+      Win.x1 = Win.x1b: Win.x2 = Win.x2b
+      Win.y1 = Win.y1b: Win.y2 = Win.y2b
+      Win.State = 2: Win.AnimTime = 0
+   END IF
+END SUB
+
+SUB RenderWindowsOutside (Win AS Windows)
+
+   _PUTIMAGE (Win.x1, Win.y1)-(Win.x2, Win.y2), Win.IMGHANDLE, 0
+   LINE (Win.x1, Win.y1)-(Win.x2, Win.y2), _RGBA32(255, 255, 255, 80), BF
+END SUB
 
 SUB IDEDEBUG
    IF IDE_DEBUG = 0 THEN EXIT SUB
@@ -250,7 +385,7 @@ SUB IDEDEBUG
    PrintWithColor 0, _HEIGHT - (1 * FontSizeY), ("§5LinCamy2 = §3" + Trunc(LinCamY2, 3)), 0
    Size = SubOutput1 * FontSizeX
    PrintWithColor Size, _HEIGHT - (4 * FontSizeY), ("§5LiveParts = §3" + STR$(Deb_LiveParts)), 0
-   PrintWithColor Size, _HEIGHT - (3 * FontSizeY), ("§5Lines = §3" + STR$(LastLine)), 0
+   PrintWithColor Size, _HEIGHT - (3 * FontSizeY), ("§5LiveWinds = §3" + STR$(Deb_LiveWindows)), 0
    PrintWithColor Size, _HEIGHT - (2 * FontSizeY), ("§5Lines = §3" + STR$(LastLine)), 0
 END SUB
 
@@ -491,7 +626,7 @@ END SUB
 SUB CreateNewGUIObj (x AS _UNSIGNED LONG, y AS _UNSIGNED LONG, Text AS STRING, SizeX AS LONG, SizeY AS LONG, WName AS STRING)
    DIM Temp AS _UNSIGNED LONG
    IF LastGUI < MaxGUI THEN
-
+      GUI(LastGUI).exists = -1
       GUI(LastGUI).openwindow = WName
       GUI(LastGUI).x1 = x
       GUI(LastGUI).y1 = y
