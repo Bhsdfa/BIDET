@@ -1,19 +1,19 @@
-' This is my IDE, called ง4BIDET.
-' It's main goal is to be ง4FASTง5, ง4MODERNง5 and compatible with both ง4LINUXง5 and ง4WINDOWS.
-' As of now its on version 0.0v04b, a pre-release.
+' This is my IDE, called ยง4BIDET.
+' It's main goal is to be ยง4FASTยง5, ยง4MODERNยง5 and compatible with both ยง4LINUXยง5 and ยง4WINDOWS.
+' As of now its on version 0.0v04b, a pre-alpha.
 '
-'ง6 At the moment it has features such as:
+'ยง6 At the moment it has features such as:
 '
-'ง2    - Text highlighting.
-'          ง2You ง1can ง3use ง4your ง5own ง2colors. งน:D ง5(Keywords will be automatically highlighted.)
+'ยง2    - Text highlighting.
+'          ยง2You ยง1can ยง3use ยง4your ยง5own ยง2colors. ยงยน:D ยง5(Keywords will be automatically highlighted.)
 '
-'ง2    - Deleting animations
-'         ง3These are aimed to keep the experience fresh and modern.
+'ยง2    - Deleting animations
+'         ยง3These are aimed to keep the experience fresh and modern.
 ' 
-'ง2    - Smooth scrolling
-'ง3         Not only smoother to code, but customizable too!
+'ยง2    - Smooth scrolling
+'ยง3         Not only smoother to code, but customizable too!
 '    
-'ง2    - Loading and saving files
+'ยง2    - Loading and saving files
 '
 
 
