@@ -9,7 +9,7 @@
 DO
    _LIMIT 15
 LOOP UNTIL _SCREENEXISTS
-
+_CONTROLCHR OFF
 SCREEN _NEWIMAGE(1280, 680, 32)
 DIM SHARED CodeLayer AS LONG
 CodeLayer = _NEWIMAGE(1280, 680, 32)
@@ -204,7 +204,7 @@ Cfg.CANIM_Erase = 2
 ' Decorative.
 DIM SHARED Part(MaxParticles) AS Particles
 
-DefaultFont = _LOADFONT("BIDET/Fonts/ComicMono-Bold.ttf", 19, "MONOSPACE,UNICODE")
+DefaultFont = _LOADFONT("BIDET/Fonts/DejaVuSansMono.ttf", 19, "MONOSPACE, UNICODE")
 _FONT DefaultFont, 0
 _FONT DefaultFont, CodeLayer
 
@@ -308,6 +308,7 @@ SUB NewWindow (x1 AS DOUBLE, y1 AS DOUBLE, x2 AS DOUBLE, y2 AS DOUBLE, x1b AS DO
 
       LastWindows = LastWindows + 1
    END IF
+   WindowLiveLogic Windows(i)
 END SUB
 
 SUB KillWIndow (win AS Windows)
@@ -341,6 +342,7 @@ SUB WindowLogic
 END SUB
 
 SUB WindowLiveLogic (Win AS Windows)
+   FtSizeY = FontSizeY * 1.5
    LINE (Win.x1, Win.y1)-(Win.x2, Win.y2), _RGBA(255, 0, 0, 128), BF
    DIM Lmx AS LONG: DIM Lmy AS LONG
    SizeX = Win.x2 - Win.x1
@@ -357,14 +359,14 @@ SUB WindowLiveLogic (Win AS Windows)
       Win.y2 = Win.y2 - Mouse.ym
    END IF
 
-   IF Lmx > SizeX - FontSizeY AND Lmy < FontSizeY AND Mouse.click1 THEN KillWIndow Win
+   IF Lmx > SizeX - FtSizeY AND Lmy < FtSizeY AND Mouse.click1 AND Win.State = 2 THEN KillWIndow Win
 
 
    'Rendering
    _DEST Win.IMGHANDLE
    CLS
-   LINE (0, 0)-(_WIDTH, FontSizeY), _RGB32(255, 255, 0), BF
-   LINE (SizeX - FontSizeY, 0)-(SizeX, FontSizeY), _RGB32(255, 0, 0), BF
+   LINE (0, 0)-(_WIDTH, FtSizeY), _RGB32(255, 255, 0), BF
+   LINE (SizeX - FtSizeY, 0)-(SizeX, FtSizeY), _RGB32(255, 0, 0), BF
    PRINT "x1: "; Win.x1
    PRINT "y1: "; Win.y1
    PRINT "x2: "; Win.x2
@@ -396,6 +398,23 @@ SUB WindowsAnim (Win AS Windows)
    IF Win.State = 0 THEN _FREEIMAGE Win.IMGHANDLE: LastWindows = LastWindows - 1
 END SUB
 
+SUB WindowsAnim2 (Win AS Windows)
+   OdistX1 = Win.x1o - Win.x1b
+   'Distx1 =
+
+   distx1 = ABS(Win.x1 - Win.x1b): distx2 = ABS(Win.x2 - Win.x2b)
+   disty1 = ABS(Win.y1 - Win.y1b): disty2 = ABS(Win.y2 - Win.y2b)
+   dist = distx1 + distx2 + disty1 + disty2
+
+   IF dist < 6 THEN
+      Win.x1 = Win.x1b: Win.x2 = Win.x2b
+      Win.y1 = Win.y1b: Win.y2 = Win.y2b
+      Win.State = Win.State + 1: Win.AnimTime = 0
+   END IF
+   IF Win.State = 0 THEN _FREEIMAGE Win.IMGHANDLE: LastWindows = LastWindows - 1
+END SUB
+
+
 SUB RenderWindowsOutside (Win AS Windows)
 
    _PUTIMAGE (Win.x1, Win.y1)-(Win.x2, Win.y2), Win.IMGHANDLE, 0
@@ -403,8 +422,9 @@ SUB RenderWindowsOutside (Win AS Windows)
 END SUB
 
 SUB IDEDEBUG
+   DIM col AS _UNSIGNED LONG
    IF IDE_DEBUG = 0 THEN EXIT SUB
-   LINE (0, _HEIGHT)-(_WIDTH, _HEIGHT - (4 * FontSizeY)), _RGB(0, 0, 0), BF
+   LINE (0, _HEIGHT)-(_WIDTH, _HEIGHT - (6 * FontSizeY)), _RGB(0, 0, 0), BF
    PrintWithColor 0, _HEIGHT - (4 * FontSizeY), ("§5LinCamX = §3" + STR$(LinCamX)), 0
    PrintWithColor 0, _HEIGHT - (3 * FontSizeY), ("§5LinCamy = §3" + STR$(LinCamY)), 0
    PrintWithColor 0, _HEIGHT - (2 * FontSizeY), ("§5LinCamX2 = §3" + Trunc(LinCamX2, 3)), 0
@@ -413,6 +433,20 @@ SUB IDEDEBUG
    PrintWithColor Size, _HEIGHT - (4 * FontSizeY), ("§5LiveParts = §3" + STR$(Deb_LiveParts)), 0
    PrintWithColor Size, _HEIGHT - (3 * FontSizeY), ("§5LiveWinds = §3" + STR$(Deb_LiveWindows)), 0
    PrintWithColor Size, _HEIGHT - (2 * FontSizeY), ("§5Lines = §3" + STR$(LastLine)), 0
+
+
+   revs = 0
+   DO
+      gets = INSTR(gets, Lin(LinEditY).VText, CSC)
+      IF gets THEN
+         col = ColorFromSymbol(MID$(Lin(LinEditY).VText, gets + 1, 1))
+         LINE (ETSX(gets - revs - 2), ETSY(LinEditY))-(ETSX(gets - revs - 2) + 2, ETSY(LinEditY) + FontSizeY), col, BF
+         gets = gets + 1: revs = revs + 2
+      END IF
+   LOOP WHILE gets <> 0
+
+   _PRINTSTRING (0, _HEIGHT - (6 * FontSizeY)), Lin(LinEditY).VText, 0
+   _PRINTSTRING (0, _HEIGHT - (5 * FontSizeY)), Lin(LinEditY).IText, 0
 END SUB
 
 SUB ShortCuts
@@ -741,7 +775,17 @@ SUB RenderLines
       IF i < LastLine THEN PrintWithColor -(LinCamX2 * FontSizeX), ETSY(i), Lin(i).VText, CodeLayer ' PRINT Lin(i).VText
    NEXT
    ' EditX/Y
-   LINE (ETSX(LinEditX + 1), ETSY(LinEditY) + (FontSizeY / 1.15))-(ETSX(LinEditX + 2), ETSY(LinEditY) + FontSizeY), _RGBA(255, 255, 255, 128), BF
+   gets = LinEditX
+   IF gets > Lin(LinEditY).ILength THEN gets = Lin(LinEditY).ILength
+   DO
+      gets = _INSTRREV(gets, Lin(LinEditY).IText, CSC)
+      IF gets THEN
+         Amounts = Amounts + 2
+         gets = gets - 1
+
+      END IF
+   LOOP WHILE gets <> 0
+   LINE (ETSX(LinEditX + 1 - Amounts), ETSY(LinEditY) + (FontSizeY / 1.15))-(ETSX(LinEditX + 2 - Amounts), ETSY(LinEditY) + FontSizeY), _RGBA(255, 255, 255, 128), BF
    ' Mouse X/Y
    LINE (ETSX(Mouse.LinX), ETSY(Mouse.LinY) + (FontSizeY / 1.15))-(ETSX(Mouse.LinX + 1), ETSY(Mouse.LinY) + FontSizeY), _RGBA(255, 0, 255, 128), BF
 
@@ -805,12 +849,12 @@ SUB PrintWithColor (X AS LONG, Y AS _UNSIGNED LONG, Text AS STRING, Handle AS LO
          Last = INSTR(First + 1, Text, CSC): IF Last = 0 THEN Last = LEN(Text) + 1
          bytes = Last - First
          COLOR ColorFromSymbol(MID$(Text, First + 1, 1)), _RGBA32(0, 0, 0, 0)
-         _PRINTSTRING (X + lens, Y), MID$(Text, First + 2, bytes - 2), Handle
+         _UPRINTSTRING (X + lens, Y), MID$(Text, First + 2, bytes - 2), , 8, , Handle
          lens = lens + ((bytes - 2) * FontSizeX)
       LOOP WHILE Last < LEN(Text)
    ELSE
       COLOR _RGB32(255, 255, 255), _RGB32(0, 0, 0)
-      _PRINTSTRING (X, Y), Text
+      _UPRINTSTRING (X, Y), Text, , 8, , Handle
    END IF
    _DEST OldHandle
    SubOutput1 = LEN(Text)
@@ -912,7 +956,6 @@ END SUB
 SUB LoadFromFile (FilePath AS STRING)
    DIM Iterations AS _UNSIGNED LONG
    Iterations = 1
-
    IF _FILEEXISTS(FilePath) THEN
 
       OPEN FilePath FOR INPUT AS #1
