@@ -18,7 +18,7 @@ CONST PI = 3.14159265359: CONST PIDIV180 = PI / 180
 'Create
 DIM SHARED DarkAlphaSprite AS LONG
 DarkAlphaSprite = _NEWIMAGE(1, 1, 32): _DEST DarkAlphaSprite
-_CLEARCOLOR _RGB32(0, 0, 0), DarkAlphaSprite: LINE (0, 0)-(1, 1), _RGBA32(0, 0, 0, 45), BF
+_CLEARCOLOR _RGB32(0, 0, 0), DarkAlphaSprite: LINE (0, 0)-(1, 1), _RGBA32(0, 0, 0, 65), BF
 _DEST 0
 delay = 2
 '$DYNAMIC
@@ -171,7 +171,7 @@ DIM SHARED SubOutput1 AS DOUBLE
 DIM SHARED LinCamX AS _UNSIGNED LONG, LinCamY AS _UNSIGNED LONG
 DIM SHARED LinCamX2 AS DOUBLE, LinCamY2 AS DOUBLE
 DIM SHARED LinEditX AS _UNSIGNED LONG, LinEditY AS _UNSIGNED LONG
-DIM SHARED LastLine AS _UNSIGNED LONG: LastLine = 5
+DIM SHARED LastLine AS _UNSIGNED LONG: LastLine = 100
 
 DIM SHARED LinesOnScreenY AS _UNSIGNED INTEGER, LinesOnScreenX AS _UNSIGNED INTEGER
 DIM SHARED Lin(LastLine) AS Lin
@@ -183,11 +183,11 @@ DIM SHARED IDE_DEBUG AS _BYTE
 DIM SHARED Deb_LiveParts AS _UNSIGNED INTEGER
 DIM SHARED Deb_LiveWindows AS _UNSIGNED INTEGER
 'Related to Dim
-DIM SHARED MaxParticles AS _UNSIGNED LONG: MaxParticles = 99999
+DIM SHARED MaxParticles AS _UNSIGNED LONG: MaxParticles = 9999
 DIM SHARED LastGUI AS _UNSIGNED LONG: LastGUI = 0
-DIM SHARED MaxGUI AS _UNSIGNED LONG: MaxGUI = 16
+DIM SHARED MaxGUI AS _UNSIGNED LONG: MaxGUI = 32
 DIM SHARED LastWindows AS _UNSIGNED LONG: LastWindows = 1
-DIM SHARED MaxWindows AS _UNSIGNED LONG: MaxWindows = 16
+DIM SHARED MaxWindows AS _UNSIGNED LONG: MaxWindows = 32
 
 DIM SHARED GUI(MaxGUI) AS GUI
 DIM SHARED Windows(MaxWindows) AS Windows
@@ -199,7 +199,7 @@ Cfg.Gravity = 3.5
 Cfg.FixCursorToScreen = 0
 
 'Animations:
-Cfg.CANIM_Erase = 2
+Cfg.CANIM_Erase = 1
 
 ' Decorative.
 DIM SHARED Part(MaxParticles) AS Particles
@@ -216,6 +216,7 @@ LinesOnScreenY = FIX(_HEIGHT / FontSizeY) - 1
 LinesOnScreenX = FIX(_WIDTH / FontSizeX) - 1
 CONST CSC = "§"
 _DELAY 0.5
+
 LoadLanguage "English"
 CreateNewGUIObj 0, 0, (Wrd(4, 2)), -1, -1, "file" 'file
 CreateNewGUIObj SubOutput1 + (FontSizeX * 2), 0, (Wrd(5, 2)), -1, -1, "edit"
@@ -225,6 +226,10 @@ CreateNewGUIObj SubOutput1 + (FontSizeX * 2), 0, (Wrd(8, 2)), -1, -1, "run"
 CreateNewGUIObj SubOutput1 + (FontSizeX * 2), 0, (Wrd(9, 2)), -1, -1, "debug"
 CreateNewGUIObj SubOutput1 + (FontSizeX * 2), 0, (Wrd(10, 2)), -1, -1, "options"
 CreateNewGUIObj SubOutput1 + (FontSizeX * 2), 0, (Wrd(10, 2)), -1, -1, "tools"
+FOR o = 0 TO LastLine
+   GenerateVText Lin(o)
+NEXT
+
 DO
    CLS , _RGB(0, 10, 45): _LIMIT 5 + (_WINDOWHASFOCUS * -70): IF Delay > 0 THEN Delay = Delay - 1
    'Mouse related shenanigans.
@@ -242,8 +247,8 @@ DO
    WindowLogic
 
    GetCursorOnText ' Responsable for text selection AND clicking.
-   LinCamX2 = LinCamX2 + ((LinCamX + 0.01) - LinCamX2) / 10
-   LinCamY2 = LinCamY2 + ((LinCamY + 0.01) - LinCamY2) / 10
+   LinCamX2 = LinCamX2 + ((LinCamX + 0.001) - LinCamX2) / 10
+   LinCamY2 = LinCamY2 + ((LinCamY + 0.001) - LinCamY2) / 10
 
    'Mouse scrolling
    IF Mouse.scroll <> 0 THEN HandleMouseScroll: AdjustEditLin
@@ -478,6 +483,7 @@ SUB GetCursorOnText
    IF Mouse.click1 THEN
       LinEditX = FIX((Mouse.x + (FontSizeX / 2)) / FontSizeX) + LinCamX
       LinEditY = FIX(Mouse.y / FontSizeY) + LinCamY
+      IF LinEditY > LastLine THEN LinEditY = LastLine
       IF Mouse.hassel = -1 THEN
          IF LinEditX <> Mouse.LinX OR LinEditY <> Mouse.LinY THEN
             Sel.Exists = -1
@@ -769,10 +775,15 @@ END SUB
 
 SUB RenderLines
    DIM i AS _UNSIGNED LONG
-   LINE (ETSX(0), ETSY(LinEditY))-(_WIDTH, ETSY(LinEditY) + FontSizeY), _RGBA(0, 64, 128, 160), BF ' Change Color.
+   LINE (ETSX(0), ETSY(LinEditY))-(_WIDTH, ETSY(LinEditY) + FontSizeY), _RGBA32(0, 64, 128, 160), BF ' Change Color.
+   LINE (0, ETSY(LastLine + 1))-(_WIDTH, _HEIGHT + 2), _RGBA32(64, 0, 0, 128), BF
    FOR i = FIX(LinCamY2) TO INT(LinCamY2) + LinesOnScreenY + 1
 
-      IF i < LastLine THEN PrintWithColor -(LinCamX2 * FontSizeX), ETSY(i), Lin(i).VText, CodeLayer ' PRINT Lin(i).VText
+      IF i <= LastLine THEN
+         PrintWithColor -(LinCamX2 * FontSizeX), ETSY(i), Lin(i).VText, CodeLayer ' PRINT Lin(i).VText
+      ELSE
+         EXIT FOR
+      END IF
    NEXT
    ' EditX/Y
    gets = LinEditX
@@ -782,7 +793,6 @@ SUB RenderLines
       IF gets THEN
          Amounts = Amounts + 2
          gets = gets - 1
-
       END IF
    LOOP WHILE gets <> 0
    LINE (ETSX(LinEditX + 1 - Amounts), ETSY(LinEditY) + (FontSizeY / 1.15))-(ETSX(LinEditX + 2 - Amounts), ETSY(LinEditY) + FontSizeY), _RGBA(255, 255, 255, 128), BF
@@ -867,7 +877,7 @@ SUB ExtraKeys
    MovedCursor = 0
    IF NOT _KEYDOWN(100306) THEN
       IF KeyD$ = "H" AND LinEditY > 1 THEN GoToLine LinEditY - 1: MovedCursor = 1 ' Up Arrow
-      IF KeyD$ = "P" AND LinEditY < LastLine THEN GoToLine LinEditY + 1: MovedCursor = 1 ' Down Arrow
+      IF KeyD$ = "P" AND LinEditY <= LastLine THEN GoToLine LinEditY + 1: MovedCursor = 1 ' Down Arrow
       IF KeyD$ = "K" AND LinEditX > 0 THEN LinEditX = LinEditX - 1: MovedCursor = 1 ' Left Arrow
       IF KeyD$ = "M" THEN LinEditX = LinEditX + 1: MovedCursor = 1 ' Right Arrow
       IF KeyD$ = "G" THEN LinEditX = 0: MovedCursor = 1 ' Home
