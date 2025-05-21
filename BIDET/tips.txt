@@ -1,0 +1,13 @@
+{DEBUG}{You can use §7SHIFT+F3 §0to toggle DEBUG info.}
+{Decoration}{You can use a section sign to change colors!}
+{Files}{§7CTRL+O§0 can be used to open files.}
+{Files}{You can use §7CTRL+S to save files.}
+{Tips}{If this annoys you, disable tips in Options > Tips > Disable.}
+{Tips}{These tips exist so you'll learn how to use §2BIDET§0 better.}
+{Tips}{Change the amount of TIPS you receive: Options > Tips > MinTime.}
+{Fun}{The code clean-up feature is available for just §34.99§0 USD!}
+{Fun}{§2BIDET§0 won't get clogged by big code.}
+{Fun}{It's way cooler to code with a friend!}
+{Fun}{What is §2Bhsdfa§0 up to?}
+{Fun}{Why did §1GO§0 run to work? To meet §1SUB§0 in time!}
+{Animations}{Change your animations settings in Options > Animations!}

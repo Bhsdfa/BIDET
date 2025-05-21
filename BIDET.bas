@@ -2,7 +2,7 @@
 ' BIDET = Bhsdfa's IDE Turbo
 ' This is still work in progress, don't use it with your code without a backup!
 ' Everything here is subject to change.
-' Version: 0.0v04b
+CONST Bidet_Version = "0.0v05b"
 
 ' https://qb64phoenix.com/qb64wiki/index.php?title=_ACOS&action=edit
 
@@ -153,8 +153,8 @@ FOR i = 1 TO MaxKeywords
 NEXT
 
 'Load keywords
-IF _FILEEXISTS("BIDET/key.words") THEN
-   OPEN "BIDET/key.words" FOR INPUT AS #1
+IF _FILEEXISTS("BIDET/keywords.ini") THEN
+   OPEN "BIDET/keywords.ini" FOR INPUT AS #1
    i = 0
    DO
       i = i + 1
@@ -163,7 +163,7 @@ IF _FILEEXISTS("BIDET/key.words") THEN
    LOOP UNTIL EOF(1)
    CLOSE #1
 ELSE
-   _MESSAGEBOX "Missing FIle.", ("File '" + "BIDET/key.words" + "' wasn't found!"), "error"
+   _MESSAGEBOX "Missing FIle.", ("File '" + "BIDET/keywords.ini" + "' wasn't found!"), "error"
    SYSTEM
 END IF
 
@@ -485,7 +485,7 @@ SUB IDEDEBUG
    PrintWithColor Size, _HEIGHT - (4 * FontSizeY), ("§5LiveParts = §3" + STR$(Deb_LiveParts)), 0
    PrintWithColor Size, _HEIGHT - (3 * FontSizeY), ("§5LiveWinds = §3" + STR$(Deb_LiveWindows)), 0
    PrintWithColor Size, _HEIGHT - (2 * FontSizeY), ("§5Lines = §3" + STR$(LastLine)), 0
-
+   PrintWithColor _WIDTH - LEN("BIDET: " + Bidet_Version), _HEIGHT - FontSizeY, ("§5Bidet: §4" + Bidet_Version), 0
 
    revs = 0
    DO
