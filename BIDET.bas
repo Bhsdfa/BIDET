@@ -134,7 +134,7 @@ END TYPE
 
 'Max variables
 DIM SHARED MaxKeywords AS _UNSIGNED INTEGER
-MaxKeywords = 1024
+MaxKeywords = 575
 
 ' Dimmers
 DIM SHARED Language AS STRING
@@ -485,7 +485,7 @@ SUB IDEDEBUG
    PrintWithColor Size, _HEIGHT - (4 * FontSizeY), ("§5LiveParts = §3" + STR$(Deb_LiveParts)), 0
    PrintWithColor Size, _HEIGHT - (3 * FontSizeY), ("§5LiveWinds = §3" + STR$(Deb_LiveWindows)), 0
    PrintWithColor Size, _HEIGHT - (2 * FontSizeY), ("§5Lines = §3" + STR$(LastLine)), 0
-   PrintWithColor _WIDTH - LEN("BIDET: " + Bidet_Version), _HEIGHT - FontSizeY, ("§5Bidet: §4" + Bidet_Version), 0
+   PrintWithColor _WIDTH - (LEN("BIDET: " + Bidet_Version) * FontSizeX), _HEIGHT - FontSizeY, ("§5Bidet: §4" + Bidet_Version), 0
 
    revs = 0
    DO
