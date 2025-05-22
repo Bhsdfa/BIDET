@@ -2,7 +2,7 @@
 ' BIDET = Bhsdfa's IDE Turbo
 ' This is still work in progress, don't use it with your code without a backup!
 ' Everything here is subject to change.
-CONST Bidet_Version = "0.0v05b"
+CONST Bidet_Version = "0.0v06b"
 
 ' https://qb64phoenix.com/qb64wiki/index.php?title=_ACOS&action=edit
 
@@ -276,7 +276,7 @@ DO
    _PUTIMAGE (0, 0), CodeLayer, 0
 
    ParticleSUB
-   RenderGUI
+   RenderGUI Windows(0)
    WindowLogic
    IDEDEBUG
    _DISPLAY
@@ -301,7 +301,7 @@ END SUB
 
 SUB GUIClicked (GUI AS GUI)
    IF GUI.openwindow <> "" THEN
-      NewWindow GUI.x1, GUI.y1, GUI.x2, GUI.y2, (_WIDTH / 2) - 200, (_HEIGHT / 2) - 150, (_WIDTH / 2) + 200, (_HEIGHT / 2) + 150, GUI.openwindow
+      NewWindow Windows(CurWindow).x1 + GUI.x1, Windows(CurWindow).y1 + GUI.y1, Windows(CurWindow).x1 + GUI.x2, Windows(CurWindow).y1 + GUI.y2, (_WIDTH / 2) - 200, (_HEIGHT / 2) - 150, (_WIDTH / 2) + 200, (_HEIGHT / 2) + 150, GUI.openwindow
 
    END IF
    Mouse.click1 = 0
@@ -310,7 +310,7 @@ END SUB
 SUB ManageWindows (Win AS Windows)
    SELECT CASE Win.ititle
       CASE "file"
-         CreateNewGUIObj Win.OwnID, 0, 80, "Testing", -1, -1, "file" 'file
+         CreateNewGUIObj Win.OwnID, 8, 64, (Wrd(4, 2)), -1, -1, "file" 'file
    END SELECT
 
 END SUB
@@ -324,6 +324,7 @@ FUNCTION CheckIfBounds (x1 AS LONG, y1 AS LONG, x2 AS LONG, y2 AS LONG, x3 AS LO
 END FUNCTION
 
 SUB NewWindow (x1 AS DOUBLE, y1 AS DOUBLE, x2 AS DOUBLE, y2 AS DOUBLE, x1b AS DOUBLE, y1b AS DOUBLE, x2b AS DOUBLE, y2b AS DOUBLE, ititle AS STRING)
+   IF ititle = "" THEN EXIT SUB
    DIM i AS _UNSIGNED LONG
    i = LastWindows
    Deb_LiveWindows = Deb_LiveWindows + 1
@@ -339,12 +340,16 @@ SUB NewWindow (x1 AS DOUBLE, y1 AS DOUBLE, x2 AS DOUBLE, y2 AS DOUBLE, x1b AS DO
       Windows(i).IMGHANDLE = _NEWIMAGE(x2b - x1b, y2b - y1b, 32)
       SELECT CASE LCASE$(ititle)
          CASE "options": Windows(i).vtitle = Wrd$(10, 2)
+         CASE "file": Windows(i).vtitle = Wrd$(4, 2)
       END SELECT
+
+      CreateNewGUIObj Windows(i).OwnID, 0, 0, Windows(i).vtitle, -1, -1, "" ' Window Name.
+      ManageWindows Windows(i)
+      WindowLiveLogic Windows(i)
 
       LastWindows = LastWindows + 1
    END IF
-   WindowLiveLogic Windows(i)
-   ManageWindows Windows(i)
+
 END SUB
 
 SUB KillWindow (Win AS Windows)
@@ -357,11 +362,15 @@ SUB KillWindow (Win AS Windows)
    Win.ititle = ""
    Win.State = -1
    Win.vtitle = ""
+
+END SUB
+SUB KillWindowGUIs (Win AS Windows)
    FOR i = 0 TO Win.GUICount
       KillGUI GUI(Win.OwnID, i), Win.OwnID
    NEXT
-END SUB
+   Win.GUICount = 0
 
+END SUB
 SUB KillGUI (GUI AS GUI, WinID AS _UNSIGNED LONG)
    GUI.exists = 0
    GUI.openwindow = ""
@@ -398,8 +407,8 @@ SUB WindowLiveLogic (Win AS Windows)
    DIM Lmx AS LONG: DIM Lmy AS LONG
    SizeX = Win.x2 - Win.x1
    SizeY = Win.y2 - Win.y2
-   Lmx = Mouse.x - Win.x1
-   Lmy = Mouse.y - Win.y1
+   Win.MousX = Mouse.x - Win.x1
+   Win.MousY = Mouse.y - Win.y1
    IF Mouse.click3 THEN
       Mouse.click1 = 0
       Mouse.click2 = 0
@@ -410,21 +419,18 @@ SUB WindowLiveLogic (Win AS Windows)
       Win.y2 = Win.y2 - Mouse.ym
    END IF
 
-   IF Lmx > SizeX - FtSizeY AND Lmy < FtSizeY AND Mouse.click1 AND Win.State = 2 THEN KillWindow Win
+   IF Win.MousX > SizeX - FtSizeY AND Win.MousY < FtSizeY AND Mouse.click1 AND Win.State = 2 THEN KillWindow Win
 
 
    'Rendering
    _DEST Win.IMGHANDLE
    CLS
-   LINE (0, 0)-(_WIDTH, FtSizeY), _RGB32(255, 255, 0), BF
+   RenderGUI Win
+   LINE (0, 0)-(_WIDTH, FtSizeY), _RGB32(255, 128, 0), BF
    LINE (SizeX - FtSizeY, 0)-(SizeX, FtSizeY), _RGB32(255, 0, 0), BF
-   ' PRINT "x1: "; Win.x1
-   PRINT "ID: "; Win.OwnID
-   ' PRINT "y1: "; Win.y1
-   ' PRINT "x2: "; Win.x2
-   ' PRINT "y2: "; Win.y2
-   ' PRINT "Lmx: "; Lmx
-   ' PRINT "Lmy: "; Lmy
+   _PUTIMAGE ((SizeX / 2) - (_WIDTH(GUI(Win.OwnID, 0).IMGHANDLE) / 2), (FtSizeY / 2) - (_HEIGHT(GUI(Win.OwnID, 0).IMGHANDLE) / 2)), GUI(Win.OwnID, 0).IMGHANDLE, Win.IMGHANDLE
+   PRINT Win.MousX
+   PRINT Win.MousY
    _DEST 0
    Mouse.click1 = 0
    Mouse.click2 = 0
@@ -447,23 +453,7 @@ SUB WindowsAnim (Win AS Windows)
       Win.y1 = Win.y1b: Win.y2 = Win.y2b
       Win.State = Win.State + 1: Win.AnimTime = 0
    END IF
-   IF Win.State = 0 THEN _FREEIMAGE Win.IMGHANDLE: Win.IMGHANDLE = 0: LastWindows = LastWindows - 1
-END SUB
-
-SUB WindowsAnim2 (Win AS Windows)
-   OdistX1 = Win.x1o - Win.x1b
-   'Distx1 =
-
-   distx1 = ABS(Win.x1 - Win.x1b): distx2 = ABS(Win.x2 - Win.x2b)
-   disty1 = ABS(Win.y1 - Win.y1b): disty2 = ABS(Win.y2 - Win.y2b)
-   dist = distx1 + distx2 + disty1 + disty2
-
-   IF dist < 6 THEN
-      Win.x1 = Win.x1b: Win.x2 = Win.x2b
-      Win.y1 = Win.y1b: Win.y2 = Win.y2b
-      Win.State = Win.State + 1: Win.AnimTime = 0
-   END IF
-   IF Win.State = 0 THEN _FREEIMAGE Win.IMGHANDLE: Win.IMGHANDLE = 0: LastWindows = LastWindows - 1
+   IF Win.State = 0 THEN _FREEIMAGE Win.IMGHANDLE: Win.IMGHANDLE = 0: LastWindows = LastWindows - 1: KillWindowGUIs Win
 END SUB
 
 
@@ -485,6 +475,7 @@ SUB IDEDEBUG
    PrintWithColor Size, _HEIGHT - (4 * FontSizeY), ("§5LiveParts = §3" + STR$(Deb_LiveParts)), 0
    PrintWithColor Size, _HEIGHT - (3 * FontSizeY), ("§5LiveWinds = §3" + STR$(Deb_LiveWindows)), 0
    PrintWithColor Size, _HEIGHT - (2 * FontSizeY), ("§5Lines = §3" + STR$(LastLine)), 0
+   PrintWithColor Size, _HEIGHT - (1 * FontSizeY), ("§5CurWindow = §3" + STR$(CurWindow)), 0
    PrintWithColor _WIDTH - (LEN("BIDET: " + Bidet_Version) * FontSizeX), _HEIGHT - FontSizeY, ("§5Bidet: §4" + Bidet_Version), 0
 
    revs = 0
@@ -593,7 +584,7 @@ SUB DeleteLetterBackspace (Ycur AS _UNSIGNED LONG, Xcur AS _UNSIGNED LONG)
       IF Cfg.CANIM_Erase <> 0 THEN ANIM_Erase Xcur, Ycur
       Lin(Ycur).IText = LEFT$(Lin(Ycur).IText, Xcur - 1) + RIGHT$(Lin(Ycur).IText, LEN(Lin(Ycur).IText) - Xcur)
       Xcur = Xcur - 1
-   ELSE
+   ELSEIF Ycur > 1 THEN
       Lin(Ycur - 1).IText = Lin(Ycur - 1).IText + Lin(Ycur).IText
       DeleteLine Ycur: GoToLine Ycur - 1: Xcur = LEN(Lin(Ycur).IText)
    END IF
@@ -727,8 +718,8 @@ SUB SpawnParticle (AnimStyle AS _UNSIGNED _BYTE, AnimID AS _UNSIGNED _BYTE, X AS
 END SUB
 
 
-SUB RenderGUI
-   DIM w AS _UNSIGNED INTEGER
+SUB RenderGUILegacy
+   DIM w AS _UNSIGNED LONG
    DIM i AS _UNSIGNED INTEGER
    FOR w = 0 TO MaxWindows
       IF Windows(w).State <> 0 THEN
@@ -742,6 +733,18 @@ SUB RenderGUI
    NEXT
    _DEST 0
 END SUB
+
+SUB RenderGUI (Win AS Windows)
+   DIM i AS _UNSIGNED INTEGER
+   DIM w AS _UNSIGNED INTEGER
+   w = Win.OwnID
+   FOR i = 0 TO Win.GUICount
+      LINE (GUI(w, i).x1, GUI(w, i).y1)-(GUI(w, i).x2, GUI(w, i).y2), _RGB32(255, 0, 0), BF
+      _PUTIMAGE (GUI(w, i).x1, GUI(w, i).y1)-(GUI(w, i).x2, GUI(w, i).y2), GUI(w, i).IMGHANDLE, Win.IMGHANDLE
+   NEXT
+
+END SUB
+
 
 SUB CreateNewGUIObj (WinID AS _UNSIGNED INTEGER, x AS _UNSIGNED LONG, y AS _UNSIGNED LONG, Text AS STRING, SizeX AS LONG, SizeY AS LONG, WName AS STRING)
    DIM Temp AS _UNSIGNED LONG
@@ -761,10 +764,11 @@ SUB CreateNewGUIObj (WinID AS _UNSIGNED INTEGER, x AS _UNSIGNED LONG, y AS _UNSI
       GUI(WinID, GUIL).y2 = GUI(WinID, GUIL).y1 + SizeY
       PrintWithColor 0, 0, Text, GUI(WinID, GUIL).IMGHANDLE
 
-      Temp = _COPYIMAGE(GUI(WinID, GUIL).IMGHANDLE, 33)
-      _FREEIMAGE GUI(WinID, GUIL).IMGHANDLE
-      GUI(WinID, GUIL).IMGHANDLE = Temp
-
+      IF WinID = 0 THEN
+         Temp = _COPYIMAGE(GUI(WinID, GUIL).IMGHANDLE, 33)
+         _FREEIMAGE GUI(WinID, GUIL).IMGHANDLE
+         GUI(WinID, GUIL).IMGHANDLE = Temp
+      END IF
       Windows(WinID).GUICount = Windows(WinID).GUICount + 1
    END IF
 
