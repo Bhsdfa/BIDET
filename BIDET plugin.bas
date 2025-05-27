@@ -8,18 +8,30 @@ DIM SHARED MainImage AS _UNSIGNED LONG
 MainImage = _NEWIMAGE(400, 300, 32)
 SCREEN MainImage
 TIMER ON
-
+_SCREENHIDE
 DIM SHARED Bhost AS SINGLE
 
 'Settings:
 ' NoFocus{0|1} (Runs even without focus)
 ' Resizable{0|1} (Allows window to resize)
-' Title{} (Window title)
-' Color{} (Window title color)
+' Title{ (STRING) } (Window title)
+' Color{ (RGB32) } (Window title color)
+' Mouse{0|1} (Will it require Mouse info?)
+' Keyboard{0|1} (Will it require Keyboard info?)
+
+' WritePerm{0|1} (Can it edit lines?)
+' ViewPerm{0|1} (Can it view lines?)
+' ChangeConfig{0|1} (Can it change BIDET's settings?)
 '
+
+Set$ = "Title{ViewDemo}"
+Set$ = Set$ + "NoFocus{0}"
+Set$ = Set$ + "Resizable{1}"
+Set$ = Set$ + "Keyboard{0}"
+Set$ = Set$ + "Mouse{0}"
 DIM Col AS _UNSIGNED LONG
 Col = _RGB32(28, 155, 238)
-LogInBIDET ("Title{RandomShit},Color{" + _TRIM$(STR$(Col)) + "},NoFocus,Resizable")
+LogInBIDET Set$
 
 
 DO

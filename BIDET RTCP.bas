@@ -86,6 +86,8 @@ TYPE Windows
    y1b AS DOUBLE
    y2b AS DOUBLE
 
+   YScrollB AS _UNSIGNED LONG
+   YScroll AS DOUBLE
    MousX AS LONG
    MousY AS LONG
    OwnID AS _UNSIGNED LONG
@@ -99,7 +101,6 @@ TYPE Windows
    IMGHANDLE AS _UNSIGNED LONG
 
    isTCP AS _BYTE
-   TCPActive AS _BYTE
    TCPHandle AS SINGLE
 END TYPE
 
@@ -244,9 +245,9 @@ NEXT
 
 ' TCP Setting up
 DIM SHARED BHost AS SINGLE
-DIM SHARED MaxTCPWin AS _UNSIGNED INTEGER: MaxTCPWin = 5
+DIM SHARED MaxTCPWin AS _UNSIGNED INTEGER: MaxTCPWin = 10
 DIM SHARED LastTCPWin AS _UNSIGNED INTEGER: LastTCPWin = 0
-DIM SHARED WinStream(1 TO MaxTCPWin) AS STRING
+DIM SHARED WinStream(1 TO (MaxTCPWin + 1)) AS STRING
 
 DO
    IF attempts > 10 THEN PRINT "Unable to start as host.": END
@@ -261,7 +262,6 @@ DO
    Mouse.scroll = 0
    Mouse.xm = Mouse.x: Mouse.ym = Mouse.y
    DO WHILE _MOUSEINPUT
-
       Mouse.click1 = _MOUSEBUTTON(1): Mouse.click2 = _MOUSEBUTTON(2): Mouse.click3 = _MOUSEBUTTON(3)
       IF _MOUSEWHEEL <> 0 THEN Mouse.scroll = _MOUSEWHEEL
    LOOP
@@ -270,9 +270,8 @@ DO
    Mouse.xm = Mouse.xm - Mouse.x: Mouse.ym = Mouse.ym - Mouse.y
    IF KeyP <> "" THEN _KEYCLEAR
    KeyP = INKEY$
+   IF Windows(CurWindow).isTCP THEN KeyP = ""
    GUIManage
-
-
 
    GetCursorOnText ' Responsable for text selection AND clicking.
    LinCamX2 = LinCamX2 + ((LinCamX + 0.001) - LinCamX2) / 10
@@ -294,10 +293,9 @@ DO
 
    ParticleSUB
    RenderGUI Windows(0)
-
-   WindowLogic
    CheckNewTCP
    WinData
+   WindowLogic
    IDEDEBUG
    _DISPLAY
 LOOP
@@ -324,22 +322,31 @@ SUB CheckNewTCP
                ist = INSTRSized(0, WinStream(LastTCPWin), "Title{")
                Title$ = MID$(WinStream(LastTCPWin), ist, INSTR(ist, WinStream(LastTCPWin), "}") - ist)
 
-               NewWindow (_WIDTH / 2) - 200, (_HEIGHT / 2) - 150, (_WIDTH / 2) + 200, (_HEIGHT / 2) + 150, (_WIDTH / 2) - 200, (_HEIGHT / 2) - 150, (_WIDTH / 2) + 200, (_HEIGHT / 2) + 150, Title$
+               NewWindow (_WIDTH / 2) - 200, (_HEIGHT / 2) - 150, (_WIDTH / 2) + 200, (_HEIGHT / 2) + 150, (_WIDTH / 2) - 400, (_HEIGHT / 2) - 300, (_WIDTH / 2) + 400, (_HEIGHT / 2) + 300, Title$
                Windows(LastWindows - 1).isTCP = -1
-               Windows(LastWindows - 1).TCPActive = -1
                Windows(LastWindows - 1).TCPHandle = newClient
 
             END IF
-
+         ELSE
+            LastTCPWin = LastTCPWin - 1
          END IF
 
       END IF
    END IF
 END SUB
 
+SUB KeyHitGet
+
+   Keyhit = _KEYHIT
+
+
+   IF Windows(CurWindow).isTCP THEN SendDataWin Windows(CurWindow).TCPHandle, ("KEYHIT>" + STR$(Keyhit))
+END SUB
+
 SUB WinData
+   KeyHitGet
    FOR i = 1 TO LastWindows
-      IF Windows(i).isTCP AND Windows(i).TCPActive THEN
+      IF Windows(i).isTCP THEN
          b$ = "PING>"
          SendDataWin Windows(i).TCPHandle, b$
 
@@ -358,9 +365,6 @@ SUB WinData
 
             SELECT CASE thisCommand$
                CASE "IMAGE"
-
-                  IF Windows(i).IMGHANDLE <> 0 THEN _FREEIMAGE Windows(i).IMGHANDLE
-                  Windows(i).IMGHANDLE = _NEWIMAGE(400, 300, 32)
                   DIM imgMem AS _MEM
                   imgMem = _MEMIMAGE(Windows(i).IMGHANDLE)
                   _MEMPUT imgMem, imgMem.OFFSET, thisData$
@@ -368,7 +372,7 @@ SUB WinData
 
                CASE "BYE!"
                   KillWindow Windows(i)
-                  LastTCPWin = LastTCPWin - 1
+
 
             END SELECT
          LOOP
@@ -387,7 +391,7 @@ FUNCTION ReturnCommand$ (tData AS STRING)
 END FUNCTION
 
 SUB SendDataWin (Channel, __Data$)
-   theData$ = __theData$ + "<END>"
+   theData$ = __Data$ + "<END>"
    PUT #Channel, , theData$
 END SUB
 
@@ -398,14 +402,9 @@ SUB GUIManage
 END SUB
 
 SUB GUILogic (GUI AS GUI)
-
    IF GUI.exists THEN
-
-      IF Mouse.click1 AND Delay = 0 AND CheckIfBounds(GUI.x1, GUI.y1, GUI.x2, GUI.y2, Windows(CurWindow).MousX, Windows(CurWindow).MousY) THEN GUIClicked GUI: Delay = 10
+      IF Mouse.click1 AND Delay = 0 AND CheckIfBounds(GUI.x1, GUI.y1 + Windows(GUI.WinOwner).YScroll, GUI.x2, GUI.y2 + Windows(GUI.WinOwner).YScroll, Windows(CurWindow).MousX, Windows(CurWindow).MousY) THEN GUIClicked GUI: Delay = 10
    END IF
-
-
-
 END SUB
 
 SUB GUIClicked (GUI AS GUI)
@@ -421,7 +420,6 @@ SUB ManageWindows (Win AS Windows)
       CASE "file"
          CreateNewGUIObj Win.OwnID, 8, 64, (Wrd(4, 2)), -1, -1, "file" 'file
    END SELECT
-
 END SUB
 
 
@@ -456,17 +454,14 @@ SUB NewWindow (x1 AS DOUBLE, y1 AS DOUBLE, x2 AS DOUBLE, y2 AS DOUBLE, x1b AS DO
       CreateNewGUIObj Windows(i).OwnID, 0, 0, Windows(i).vtitle, -1, -1, "" ' Window Name.
       ManageWindows Windows(i)
       WindowLiveLogic Windows(i)
-
       LastWindows = LastWindows + 1
    END IF
-
 END SUB
 
 SUB KillWindow (Win AS Windows)
+   LastTCPWin = LastTCPWin - 1
    Win.isTCP = 0
-   Win.TCPActive = 0
    Win.TCPHandle = 0
-
    DIM i AS _UNSIGNED INTEGER
    Deb_LiveWindows = Deb_LiveWindows - 1
    SWAP Win.x1b, Win.x1o
@@ -476,14 +471,12 @@ SUB KillWindow (Win AS Windows)
    Win.ititle = ""
    Win.State = -1
    Win.vtitle = ""
-
 END SUB
 SUB KillWindowGUIs (Win AS Windows)
    FOR i = 0 TO Win.GUICount
       KillGUI GUI(Win.OwnID, i), Win.OwnID
    NEXT
    Win.GUICount = 0
-
 END SUB
 SUB KillGUI (GUI AS GUI, WinID AS _UNSIGNED LONG)
    GUI.exists = 0
@@ -498,26 +491,26 @@ END SUB
 
 
 SUB WindowLogic
-
    FOR i = 1 TO MaxWindows
       IF Windows(i).State <> 0 THEN
          RenderWindowsOutside Windows(i)
          IF Windows(i).State = 1 OR Windows(i).State = -1 THEN WindowsAnim Windows(i)
-
-
       END IF
    NEXT
    IF Windows(CurWindow).State = 2 THEN WindowLiveLogic Windows(CurWindow)
    CurWindow = 0
    FOR o = MaxWindows TO 1 STEP -1
       IF Windows(o).State = 2 AND CheckIfBounds(Windows(o).x1, Windows(o).y1, Windows(o).x2, Windows(o).y2, Mouse.x, Mouse.y) THEN CurWindow = o: EXIT FOR
+
    NEXT
+
+
 
 END SUB
 
 SUB WindowLiveLogic (Win AS Windows)
-   FtSizeY = FontSizeY * 1.5
-   LINE (Win.x1, Win.y1)-(Win.x2, Win.y2), _RGBA(255, 0, 0, 128), BF
+   FtSizeY = FontSizeY * 1.25
+   LINE (Win.x1, Win.y1)-(Win.x2, Win.y2), _RGB32(255, 0, 0), B
    DIM Lmx AS LONG: DIM Lmy AS LONG
    SizeX = Win.x2 - Win.x1
    SizeY = Win.y2 - Win.y2
@@ -532,27 +525,23 @@ SUB WindowLiveLogic (Win AS Windows)
       Win.y1 = Win.y1 - Mouse.ym
       Win.y2 = Win.y2 - Mouse.ym
    END IF
-
    IF Win.MousX > SizeX - FtSizeY AND Win.MousY < FtSizeY AND Mouse.click1 AND Win.State = 2 THEN
       IF Win.isTCP THEN
-         FOR o = 1 TO 3
-            SendDataWin Win.TCPHandle, "BYE!>Dawg"
-         NEXT
-
+         SendDataWin Win.TCPHandle, "BYE!>"
+         LastTCPWin = LastTCPWin - 1
       END IF
       KillWindow Win
    END IF
-
-
    'Rendering
    _DEST Win.IMGHANDLE
-   CLS
-   RenderGUI Win
+   IF Win.isTCP = 0 THEN
+      CLS
+      RenderGUI Win
+   END IF
    LINE (0, 0)-(_WIDTH, FtSizeY), _RGB32(255, 128, 0), BF
    LINE (SizeX - FtSizeY, 0)-(SizeX, FtSizeY), _RGB32(255, 0, 0), BF
    _PUTIMAGE ((SizeX / 2) - (_WIDTH(GUI(Win.OwnID, 0).IMGHANDLE) / 2), (FtSizeY / 2) - (_HEIGHT(GUI(Win.OwnID, 0).IMGHANDLE) / 2)), GUI(Win.OwnID, 0).IMGHANDLE, Win.IMGHANDLE
-   PRINT Win.MousX
-   PRINT Win.MousY
+
    _DEST 0
    Mouse.click1 = 0
    Mouse.click2 = 0
@@ -580,9 +569,8 @@ END SUB
 
 
 SUB RenderWindowsOutside (Win AS Windows)
-
    _PUTIMAGE (Win.x1, Win.y1)-(Win.x2, Win.y2), Win.IMGHANDLE, 0
-   LINE (Win.x1, Win.y1)-(Win.x2, Win.y2), _RGBA32(255, 255, 255, 80), BF
+
 END SUB
 
 SUB IDEDEBUG
@@ -598,6 +586,8 @@ SUB IDEDEBUG
    PrintWithColor Size, _HEIGHT - (3 * FontSizeY), ("§5LiveWinds = §3" + STR$(Deb_LiveWindows)), 0
    PrintWithColor Size, _HEIGHT - (2 * FontSizeY), ("§5Lines = §3" + STR$(LastLine)), 0
    PrintWithColor Size, _HEIGHT - (1 * FontSizeY), ("§5CurWindow = §3" + STR$(CurWindow)), 0
+   Size = Size + SubOutput1 * FontSizeX
+   PrintWithColor Size, _HEIGHT - (4 * FontSizeY), ("§5LastTCPWin = §3" + STR$(LastTCPWin)), 0
    PrintWithColor _WIDTH - (LEN("BIDET: " + Bidet_Version) * FontSizeX), _HEIGHT - FontSizeY, ("§5Bidet: §4" + Bidet_Version), 0
 
    revs = 0
