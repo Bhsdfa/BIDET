@@ -256,6 +256,9 @@ DO
 LOOP UNTIL BHost
 
 DO
+   IF _EXIT THEN
+      ExitBIDET
+   END IF
    'CLS , _RGB(0, 10, 45): _LIMIT 5 + (_WINDOWHASFOCUS * -70): IF Delay > 0 THEN Delay = Delay - 1
    CLS , _RGB(0, 10, 45): _LIMIT 75: IF Delay > 0 THEN Delay = Delay - 1
    'Mouse related shenanigans.
@@ -299,6 +302,17 @@ DO
    IDEDEBUG
    _DISPLAY
 LOOP
+
+SUB ExitBIDET
+   FOR i = 0 TO LastWindows
+      IF Windows(i).isTCP THEN
+         SendDataWin Windows(i).TCPHandle, "BYE!>"
+         BEEP
+      END IF
+   NEXT
+   _DELAY 0.5
+   SYSTEM
+END SUB
 
 'Thanks to Fellippe Heitor!
 ' https://github.com/FellippeHeitor/tcpip-experiments
@@ -459,7 +473,7 @@ SUB NewWindow (x1 AS DOUBLE, y1 AS DOUBLE, x2 AS DOUBLE, y2 AS DOUBLE, x1b AS DO
 END SUB
 
 SUB KillWindow (Win AS Windows)
-   LastTCPWin = LastTCPWin - 1
+   IF Win.isTCP THEN LastTCPWin = LastTCPWin - 1
    Win.isTCP = 0
    Win.TCPHandle = 0
    DIM i AS _UNSIGNED INTEGER
@@ -528,7 +542,6 @@ SUB WindowLiveLogic (Win AS Windows)
    IF Win.MousX > SizeX - FtSizeY AND Win.MousY < FtSizeY AND Mouse.click1 AND Win.State = 2 THEN
       IF Win.isTCP THEN
          SendDataWin Win.TCPHandle, "BYE!>"
-         LastTCPWin = LastTCPWin - 1
       END IF
       KillWindow Win
    END IF
@@ -541,7 +554,7 @@ SUB WindowLiveLogic (Win AS Windows)
    LINE (0, 0)-(_WIDTH, FtSizeY), _RGB32(255, 128, 0), BF
    LINE (SizeX - FtSizeY, 0)-(SizeX, FtSizeY), _RGB32(255, 0, 0), BF
    _PUTIMAGE ((SizeX / 2) - (_WIDTH(GUI(Win.OwnID, 0).IMGHANDLE) / 2), (FtSizeY / 2) - (_HEIGHT(GUI(Win.OwnID, 0).IMGHANDLE) / 2)), GUI(Win.OwnID, 0).IMGHANDLE, Win.IMGHANDLE
-
+   IF Win.isTCP THEN _DISPLAY
    _DEST 0
    Mouse.click1 = 0
    Mouse.click2 = 0
