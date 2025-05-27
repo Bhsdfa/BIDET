@@ -336,7 +336,7 @@ SUB CheckNewTCP
                ist = INSTRSized(0, WinStream(LastTCPWin), "Title{")
                Title$ = MID$(WinStream(LastTCPWin), ist, INSTR(ist, WinStream(LastTCPWin), "}") - ist)
 
-               NewWindow (_WIDTH / 2) - 200, (_HEIGHT / 2) - 150, (_WIDTH / 2) + 200, (_HEIGHT / 2) + 150, (_WIDTH / 2) - 400, (_HEIGHT / 2) - 300, (_WIDTH / 2) + 400, (_HEIGHT / 2) + 300, Title$
+               NewWindow (_WIDTH / 2) - 2, (_HEIGHT / 2) - 2, (_WIDTH / 2) + 2, (_HEIGHT / 2) + 2, (_WIDTH / 2) - 400, (_HEIGHT / 2) - 300, (_WIDTH / 2) + 400, (_HEIGHT / 2) + 300, Title$
                Windows(LastWindows - 1).isTCP = -1
                Windows(LastWindows - 1).TCPHandle = newClient
 
