@@ -259,6 +259,7 @@ DO
    IF _EXIT THEN
       ExitBIDET
    END IF
+
    'CLS , _RGB(0, 10, 45): _LIMIT 5 + (_WINDOWHASFOCUS * -70): IF Delay > 0 THEN Delay = Delay - 1
    CLS , _RGB(0, 10, 45): _LIMIT 75: IF Delay > 0 THEN Delay = Delay - 1
    'Mouse related shenanigans.
@@ -302,6 +303,21 @@ DO
    IDEDEBUG
    _DISPLAY
 LOOP
+
+SUB AddVariable (VarText AS STRING)
+
+END SUB
+
+
+SUB LastKeyword
+   FOR I = LastLine TO 1 STEP -1
+
+      FOR o = I TO LastLine
+
+      NEXT
+
+   NEXT
+END SUB
 
 SUB ExitBIDET
    FOR i = 0 TO LastWindows
